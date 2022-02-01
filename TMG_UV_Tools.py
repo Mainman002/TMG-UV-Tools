@@ -47,16 +47,31 @@ class OBJECT_PT_DeleteOB(Operator):
         scene = context.scene
         tmg_uv_vars = scene.tmg_uv_vars
 
-        bpy.context.view_layer.objects.active = bpy.data.objects[self.name]
-        bpy.data.objects[self.name].select_set(True) 
-
-        if bpy.context.view_layer.objects.active == bpy.data.objects[self.name]:
-            bpy.context.view_layer.objects.active = None
-            tag_redraw(context)
-
         if bpy.data.objects[self.name]:
             bpy.data.objects.remove(bpy.data.objects[self.name], do_unlink=True)
+            tag_redraw(context)
 
+        return {'FINISHED'}
+
+
+class OBJECT_PT_SetActiveUV(Operator):
+    """Set active uv layer from objects"""
+
+    bl_idname = "tmg_uv.set_active_uv"
+    bl_label = ""
+    bl_options = {'REGISTER', 'UNDO'}
+    name : bpy.props.StringProperty(name="UV Name")
+
+    def execute(self, context):
+        scene = context.scene
+        tmg_uv_vars = scene.tmg_uv_vars
+        
+        for ob in bpy.context.selected_objects:
+            if ob.type == "MESH":
+                for uv in ob.data.uv_layers:
+                    if uv.name == self.name:
+                        ob.data.uv_layers[self.name].active_render = True 
+        tag_redraw(context)
         return {'FINISHED'}
 
 
@@ -140,7 +155,7 @@ class OBJECT_PT_AddUV(Operator):
         tmg_uv_vars = scene.tmg_uv_vars
 
         for ob in bpy.context.selected_objects:
-            if ob.type == "MESH":
+            if ob.type == "MESH" and len(ob.data.uv_layers) < 8:
                 ob.data.uv_layers.new(name=self.name)
             tag_redraw(context)
         return {'FINISHED'}
@@ -153,29 +168,6 @@ class OBJECT_PT_TMG_Object_Panel(bpy.types.Panel):
     bl_context = "objectmode"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-
-    def draw(self, context):
-        layout = self.layout
-        
-
-class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
-    bl_idname = "OBJECT_PT_tmg_object_panel_list"
-    bl_label = ""
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_parent_id = "OBJECT_PT_tmg_object_panel"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw_header(self, context):
-        layout = self.layout
-
-        objs = []
-        for ob in bpy.context.scene.objects:
-            if ob.type == "MESH":
-                objs.append(ob)
-
-        layout.label(text="Objects : %s" %len(objs))
-        
 
     def draw(self, context):
         scene = context.scene
@@ -196,20 +188,19 @@ class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
         row = col.row(align=True)
 
         if len(objs) < 1: 
-            col.label(text="No Objects in Scene")
+            col.label(text="No objects selected")
 
         for ob in objs:
             row = col.row(align=True)
 
-            # if bpy.context.space_data.objects == ob:
             if bpy.context.selected_objects == ob:
-                prop = row.operator("tmg_uv.select_ob", text=ob.name, emboss=False) #  icon="RESTRICT_SELECT_OFF",
+                prop = row.operator("tmg_uv.select_ob", text=ob.name, emboss=False)
             else:
-                prop = row.operator("tmg_uv.select_ob", text=ob.name, emboss=True) #  icon="RESTRICT_SELECT_ON",
+                prop = row.operator("tmg_uv.select_ob", text=ob.name, emboss=True)
             prop.name = ob.name
 
             prop = row.operator("tmg_uv.delete_ob", text='', icon="TRASH")
-            prop.name = ob.name      
+            prop.name = ob.name       
 
 
 class OBJECT_PT_TMG_UV_Panel(bpy.types.Panel):
@@ -219,36 +210,6 @@ class OBJECT_PT_TMG_UV_Panel(bpy.types.Panel):
     bl_context = "objectmode"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-
-    def draw(self, context):
-        layout = self.layout
-
-            
-class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
-    bl_idname = "OBJECT_PT_tmg_uv_panel_list"
-    bl_label = ""
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_parent_id = "OBJECT_PT_tmg_uv_panel"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw_header(self, context):
-        layout = self.layout
-
-        objs = []
-        uvs = []
-
-        for ob in bpy.context.scene.objects:
-            if ob.type == "MESH":
-                objs.append(ob)
-                for uv in ob.data.uv_layers:
-                    if uv.name not in uvs:
-                        uvs.append(uv.name)
-
-        layout.label(text="UVs : %s" %len(uvs))
-        prop = layout.operator("tmg_uv.add_uv", text='', icon="PLUS", emboss=True)
-        prop = layout.operator("tmg_uv.delete_all_uv", text='', icon="X", emboss=True)
-        
 
     def draw(self, context):
         scene = context.scene
@@ -266,23 +227,36 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
                     if uv.name not in uvs:
                         uvs.append(uv.name)
 
+        row = layout.row(align=True)  
+        prop = row.operator("tmg_uv.add_uv", text='', icon="PLUS", emboss=True)
+        prop = row.operator("tmg_uv.delete_all_uv", text='', icon="X", emboss=True)
 
         box = layout.box()
         col = box.column(align=False)
         row = col.row(align=True)  
 
-        if len(uvs) < 1: 
-            col.label(text="No UVs on Objects")
+        ob = bpy.context.active_object
+
+        if len(uvs) < 1 or not ob or ob.type != 'MESH': 
+            col.label(text="No UVs on active object")
         
-        for uv in uvs:
-            row = col.row(align=True)
+        if bpy.context.active_object and bpy.context.active_object.type == 'MESH':
+            for uv in uvs:
+                if ob.data.uv_layers.get(uv):
+                    row = col.row(align=True)
 
-            if bpy.context.selected_objects == uv:
-                prop = row.operator("tmg_uv.select_uv", text=uv, emboss=False) #  icon="RESTRICT_SELECT_OFF",
-            else:
-                prop = row.operator("tmg_uv.select_uv", text=uv, emboss=True) #  icon="RESTRICT_SELECT_ON",
-            prop.name = uv
+                    if ob.data.uv_layers[uv].active:
+                        prop = row.operator("tmg_uv.select_uv", text=uv, emboss=False)
+                    else:
+                        prop = row.operator("tmg_uv.select_uv", text=uv, emboss=True)
+                    prop.name = uv
 
-            prop = row.operator("tmg_uv.delete_uv", text='', icon="TRASH")
-            prop.name = uv        
+                    if ob.data.uv_layers[uv].active_render:
+                        prop = row.operator("tmg_uv.set_active_uv", text='', icon="RESTRICT_RENDER_OFF")
+                    else:
+                        prop = row.operator("tmg_uv.set_active_uv", text='', icon="RESTRICT_RENDER_ON")
+                    prop.name = uv     
+
+                    prop = row.operator("tmg_uv.delete_uv", text='', icon="TRASH")
+                    prop.name = uv  
 
