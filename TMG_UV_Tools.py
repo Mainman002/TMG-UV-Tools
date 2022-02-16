@@ -32,7 +32,7 @@ class OBJECT_PT_SelectOB(Operator):
         tmg_uv_vars = scene.tmg_uv_vars
         bpy.context.view_layer.objects.active = bpy.data.objects[self.name]
         bpy.data.objects[self.name].select_set(True) 
-        tag_redraw(context)
+        # tag_redraw(context)
         return {'FINISHED'}
 
 
@@ -53,7 +53,7 @@ class OBJECT_PT_DeleteOB(Operator):
 
         if bpy.context.view_layer.objects.active == bpy.data.objects[self.name]:
             bpy.context.view_layer.objects.active = None
-            tag_redraw(context)
+            # tag_redraw(context)
 
         if bpy.data.objects[self.name]:
             bpy.data.objects.remove(bpy.data.objects[self.name], do_unlink=True)
@@ -70,15 +70,15 @@ class OBJECT_PT_SelectUV(Operator):
     name : bpy.props.StringProperty(name="UV Name")
 
     def execute(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
-        
-        for ob in bpy.context.selected_objects:
-            if ob.type == "MESH":
-                for uv in ob.data.uv_layers:
-                    if uv.name == self.name:
-                        ob.data.uv_layers[self.name].active = True 
-        tag_redraw(context)
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
+
+            while len(sel_uvs) >= 1:      
+                uv = sel_uvs.pop() 
+                ob.data.uv_layers[uv.name].active = True 
+        # tag_redraw(context)
         return {'FINISHED'}
 
 
@@ -91,15 +91,15 @@ class OBJECT_PT_DeleteUV(Operator):
     name : bpy.props.StringProperty(name="UV Name")
 
     def execute(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
 
-        for ob in bpy.context.selected_objects:
-            if ob.type == "MESH":
-                for uv in ob.data.uv_layers:
-                    if uv.name == self.name:
-                        ob.data.uv_layers.remove(ob.data.uv_layers[self.name])
-            tag_redraw(context)
+            while len(sel_uvs) >= 1:      
+                uv = sel_uvs.pop() 
+                ob.data.uv_layers.remove(ob.data.uv_layers[uv.name])
+        # tag_redraw(context)
         return {'FINISHED'}
 
 
@@ -111,20 +111,15 @@ class OBJECT_PT_DeleteAllUV(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            sel_uvs = [uv for uv in ob.data.uv_layers if ob.data.uv_layers.get(uv.name)]
 
-        objs = []
-        uvs = []
-
-        for ob in bpy.context.selected_objects:
-            if ob.type == "MESH":
-                objs.append(ob)
-                while len(ob.data.uv_layers) > 0:
-                    for uv in ob.data.uv_layers:
-                        if ob.data.uv_layers.get(uv.name):
-                            ob.data.uv_layers.remove(layer=uv)
-            tag_redraw(context)
+            while len(sel_uvs) >= 1:      
+                uv = sel_uvs.pop() 
+                ob.data.uv_layers.remove(layer=uv)
+        # tag_redraw(context)
         return {'FINISHED'}
 
 
@@ -137,13 +132,11 @@ class OBJECT_PT_AddUV(Operator):
     name : bpy.props.StringProperty(name="UVMap")
 
     def execute(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
-
-        for ob in bpy.context.selected_objects:
-            if ob.type == "MESH":
-                ob.data.uv_layers.new(name=self.name)
-            tag_redraw(context)
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            ob.data.uv_layers.new(name=self.name)
+        # tag_redraw(context)
         return {'FINISHED'}
 
 
@@ -157,15 +150,15 @@ class OBJECT_PT_RenameUV(Operator):
     rename : bpy.props.StringProperty(name="UVMap")
 
     def execute(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
 
-        for ob in bpy.context.selected_objects:
-            if ob.type == "MESH":
-                for uv in ob.data.uv_layers:
-                    if uv.name == self.name:
-                        ob.data.uv_layers[uv.name].name = self.rename
-        tag_redraw(context)
+            while len(sel_uvs) >= 1:      
+                uv = sel_uvs.pop() 
+                ob.data.uv_layers[uv.name].name = self.rename
+        # tag_redraw(context)
         return {'FINISHED'}
 
 
@@ -178,15 +171,15 @@ class OBJECT_PT_ActiveRenderUV(Operator):
     name : bpy.props.StringProperty(name="UVMap")
 
     def execute(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
 
-        for ob in bpy.context.selected_objects:
-            if ob.type == "MESH":
-                for uv in ob.data.uv_layers:
-                    if uv.name == self.name:
-                        ob.data.uv_layers[uv.name].active_render = True
-        tag_redraw(context)
+            while len(sel_uvs) >= 1:      
+                uv = sel_uvs.pop() 
+                ob.data.uv_layers[uv.name].active_render = True
+        # tag_redraw(context)
         return {'FINISHED'}
 
 
@@ -214,26 +207,27 @@ class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
         layout = self.layout
 
         objs = []
-        for ob in bpy.context.scene.objects:
-            if ob.type == "MESH":
-                objs.append(ob)
+
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            objs.append(ob)
 
         layout.label(text="Objects : %s" %len(objs))
         
 
     def draw(self, context):
         scene = context.scene
-        props = scene.eevee
-        tmg_uv_vars = scene.tmg_uv_vars
+        # props = scene.eevee
+        # tmg_uv_vars = scene.tmg_uv_vars
         layout = self.layout
              
         objs = []
 
-        # for ob in bpy.context.scene.objects:
-        for ob in bpy.context.selected_objects:
-            if ob.type == "MESH":
-                objs.append(ob)
-
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            objs.append(ob)
 
         box = layout.box()
         col = box.column(align=False)
@@ -242,7 +236,9 @@ class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
         if len(objs) < 1: 
             col.label(text="No Objects in Scene")
 
-        for ob in objs:
+        # for ob in objs:
+        while len(objs) >= 1:      
+            ob = objs.pop() 
             row = col.row(align=True)
 
             # if bpy.context.space_data.objects == ob:
@@ -282,12 +278,15 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
         objs = []
         uvs = []
 
-        for ob in bpy.context.scene.objects:
-            if ob.type == "MESH":
-                objs.append(ob)
-                for uv in ob.data.uv_layers:
-                    if uv.name not in uvs:
-                        uvs.append(uv.name)
+        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            objs.append(ob)
+
+            sel_uvs = [uv for uv in ob.data.uv_layers if uv.name not in uvs]
+            while len(sel_uvs) >= 1:      
+                uv = sel_uvs.pop() 
+                uvs.append(uv.name)
 
         layout.label(text="UVs : %s" %len(uvs))
         prop = layout.operator("tmg_uv.add_uv", text='', icon="PLUS", emboss=True)
