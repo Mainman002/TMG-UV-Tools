@@ -289,10 +289,11 @@ class OBJECT_PT_Unwrap(Operator):
             
             bpy.ops.object.mode_set(mode='OBJECT')
 
-            while len(o_uvs) >= 1:      
-                uv = o_uvs.pop() 
-                if ob and uv:
-                    ob.data.uv_layers[uv.name].active = True 
+            o_sel_uvs = [uv for uv in o_uvs if uv.name == self.name]
+            while len(o_sel_uvs) >= 1:      
+                uv = o_sel_uvs.pop() 
+                ob.data.uv_layers[uv.name].active = True 
+
         return {'FINISHED'}
 
 
