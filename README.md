@@ -7,4 +7,4 @@ Blender 2.9x add-on to manage uv layers on selected objects
 * Display uv layers of selected objects without showing duplicate names
 * Easily add, remove, and rename uv layers
 
-![image](https://user-images.githubusercontent.com/11281480/154344886-d94c2494-41fd-4849-876e-6edc41c9408c.png)
+![image](https://user-images.githubusercontent.com/11281480/155583904-0e0f943f-ea4a-4c9d-ac3b-065de91ccf41.png)
