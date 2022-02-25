@@ -18,7 +18,7 @@ from bpy.types import Operator, Header
 class TMG_UV_Properties(bpy.types.PropertyGroup):
     uvName : bpy.props.StringProperty(name='UVMap', default='UVMap', description='Name to set uv layer to')
 
-    unwrapTypes : bpy.props.EnumProperty(name='Method', default='Smart_Project', description='',
+    unwrapTypes : bpy.props.EnumProperty(name='Method', default='Unwrap', description='',
     items=[
     ('Unwrap', 'Unwrap', ''),
     ('Smart_Project', 'Smart_Project', ''),
@@ -34,10 +34,11 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     selectAllFaces : bpy.props.BoolProperty(name="select all faces", default=False, description='Select all faces before unwrapping')
 
     # smart_project
-    sp_angle_limit : bpy.props.FloatProperty(name="angle_limit", default=0.785398, min=0, soft_max=1.55334, description='')
-    sp_area_weight : bpy.props.FloatProperty(name="area_weight", default=0.02, min=0, soft_max=1.0, description='')
+    sp_angle_limit : bpy.props.FloatProperty(name="angle_limit", default=45.0, min=0, soft_max=99.0, description='')
+    sp_area_weight : bpy.props.FloatProperty(name="area_weight", default=0.2, min=0, soft_max=1.0, description='')
     sp_correct_aspect : bpy.props.BoolProperty(name="correct_aspect", default=True, description='')
     sp_scale_to_bounds : bpy.props.BoolProperty(name="scale_to_bounds", default=False, description='')
+    sp_margin : bpy.props.FloatProperty(name="margin", default=0.002, min=0, soft_max=1.0, description='')
 
     # Unwrap
     unwrapMethod : bpy.props.EnumProperty(name='Method', default='ANGLE_BASED', description='',
@@ -49,7 +50,7 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     un_fill_holes : bpy.props.BoolProperty(name="fill_holes", default=True, description='')
     un_correct_aspect : bpy.props.BoolProperty(name="correct_aspect", default=True, description='')
     un_use_subsurf_data : bpy.props.BoolProperty(name="use_subsurf_data", default=False, description='')
-    un_margin : bpy.props.FloatProperty(name="margin", default=0.2, min=0, soft_max=1.0, description='')
+    un_margin : bpy.props.FloatProperty(name="margin", default=0.03, min=0, soft_max=1.0, description='')
 
     # Lightmap
     li_selection : bpy.props.EnumProperty(name='Unwrap', default='SEL_FACES', description='',
@@ -62,7 +63,8 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     li_new_uv_map : bpy.props.BoolProperty(name="new_uv_map", default=False, description='')
     li_new_image : bpy.props.BoolProperty(name="new_image", default=False, description='')
     li_image_size : bpy.props.IntProperty(name="image_size", default=128, min=64, soft_max=5000, description='')
-    li_pack_quality : bpy.props.IntProperty(name="pack_quality", default=12, min=1, soft_max=48, description='')
+    li_pack_quality : bpy.props.IntProperty(name="pack_quality", default=20, min=1, soft_max=48, description='')
+    li_margin : bpy.props.FloatProperty(name="margin", default=0.05, min=0.0, soft_max=1.0, description='')
 
 
 class OBJECT_PT_SelectOB(Operator):
@@ -254,7 +256,7 @@ class OBJECT_PT_Unwrap(Operator):
 
         elif tmg_uv_vars.unwrapTypes == "Smart_Project":
             col.prop(tmg_uv_vars, 'sp_angle_limit')
-            col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'sp_margin')
             col.prop(tmg_uv_vars, 'sp_area_weight')
             col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'sp_correct_aspect')
@@ -268,7 +270,7 @@ class OBJECT_PT_Unwrap(Operator):
             col.prop(tmg_uv_vars, 'li_new_image')
             col.prop(tmg_uv_vars, 'li_image_size')
             col.prop(tmg_uv_vars, 'li_pack_quality')
-            col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'li_margin')
 
         else:
             col.label(text='No options')
@@ -321,7 +323,7 @@ class OBJECT_PT_Unwrap(Operator):
                 elif tmg_uv_vars.unwrapTypes == "Smart_Project":
                     bpy.ops.uv.smart_project(
                         angle_limit = tmg_uv_vars.sp_angle_limit, 
-                        island_margin = tmg_uv_vars.un_margin, 
+                        island_margin = tmg_uv_vars.sp_margin, 
                         area_weight = tmg_uv_vars.sp_area_weight,
                         correct_aspect = tmg_uv_vars.sp_correct_aspect, 
                         scale_to_bounds = tmg_uv_vars.sp_scale_to_bounds)
@@ -334,7 +336,7 @@ class OBJECT_PT_Unwrap(Operator):
                         PREF_APPLY_IMAGE = tmg_uv_vars.li_new_image,
                         PREF_IMG_PX_SIZE = tmg_uv_vars.li_image_size,
                         PREF_BOX_DIV = tmg_uv_vars.li_pack_quality,
-                        PREF_MARGIN_DIV = tmg_uv_vars.un_margin)
+                        PREF_MARGIN_DIV = tmg_uv_vars.li_margin)
                 
                 if ob.mode != 'OBJECT':
                     bpy.ops.object.mode_set(mode='OBJECT')
@@ -565,7 +567,7 @@ class EDIT_PT_Unwrap(Operator):
 
         elif tmg_uv_vars.unwrapTypes == "Smart_Project":
             col.prop(tmg_uv_vars, 'sp_angle_limit')
-            col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'sp_margin')
             col.prop(tmg_uv_vars, 'sp_area_weight')
             col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'sp_correct_aspect')
@@ -579,7 +581,7 @@ class EDIT_PT_Unwrap(Operator):
             col.prop(tmg_uv_vars, 'li_new_image')
             col.prop(tmg_uv_vars, 'li_image_size')
             col.prop(tmg_uv_vars, 'li_pack_quality')
-            col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'li_margin')
 
         else:
             col.label(text='No options')
@@ -594,7 +596,8 @@ class EDIT_PT_Unwrap(Operator):
         sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH' and obj.data.uv_layers.get(self.name)]
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
-            o_objs.append(ob)
+            if ob.type == 'MESH':
+                o_objs.append(ob)
 
             if ob.mode != 'OBJECT':
                 bpy.ops.object.mode_set(mode='OBJECT')
@@ -603,12 +606,11 @@ class EDIT_PT_Unwrap(Operator):
                 bpy.ops.object.select_all(action='DESELECT')
                 bpy.context.view_layer.objects.active = ob
                 ob.select_set(state=True)
-
-            if ob.type == 'MESH':   
-                sel_uvsO = [uv for uv in ob.data.uv_layers if uv.active == True]
-                while len(sel_uvsO) >= 1:      
-                    uv = sel_uvsO.pop() 
-                    o_uvs.append(uv)
+   
+            sel_uvsO = [uv for uv in ob.data.uv_layers if uv.active == True]
+            while len(sel_uvsO) >= 1:      
+                uv = sel_uvsO.pop() 
+                o_uvs.append(uv)
 
                 sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
                 while len(sel_uvs) >= 1:      
@@ -633,7 +635,7 @@ class EDIT_PT_Unwrap(Operator):
                 elif tmg_uv_vars.unwrapTypes == "Smart_Project":
                     bpy.ops.uv.smart_project(
                         angle_limit = tmg_uv_vars.sp_angle_limit, 
-                        island_margin = tmg_uv_vars.un_margin, 
+                        island_margin = tmg_uv_vars.sp_margin, 
                         area_weight = tmg_uv_vars.sp_area_weight,
                         correct_aspect = tmg_uv_vars.sp_correct_aspect, 
                         scale_to_bounds = tmg_uv_vars.sp_scale_to_bounds)
@@ -646,24 +648,23 @@ class EDIT_PT_Unwrap(Operator):
                         PREF_APPLY_IMAGE = tmg_uv_vars.li_new_image,
                         PREF_IMG_PX_SIZE = tmg_uv_vars.li_image_size,
                         PREF_BOX_DIV = tmg_uv_vars.li_pack_quality,
-                        PREF_MARGIN_DIV = tmg_uv_vars.un_margin)
+                        PREF_MARGIN_DIV = tmg_uv_vars.li_margin)
                 
                 if ob.mode != 'OBJECT':
                     bpy.ops.object.mode_set(mode='OBJECT')
 
         for ob in o_objs:
-            if ob.type == 'MESH':
-                if ob.data.uv_layers.get(self.name):
-                    # print("Has: ", ob.data.uv_layers.get(self.name))
+            if ob.data.uv_layers.get(self.name):
+                # print("Has: ", ob.data.uv_layers.get(self.name))
 
-                    ob.data.uv_layers[self.name].active = True 
-                    bpy.context.view_layer.objects.active = ob
-                    ob.select_set(state=True)
-                else:
-                    print("UV layer not found")
+                ob.data.uv_layers[self.name].active = True 
+                bpy.context.view_layer.objects.active = ob
+                ob.select_set(state=True)
+            else:
+                print("UV layer not found")
 
-            if ob.mode != 'EDIT':
-                bpy.ops.object.mode_set(mode='EDIT')
+        if ob.mode != 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
 
         return {'FINISHED'}
 
@@ -814,7 +815,7 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
 
         elif tmg_uv_vars.unwrapTypes == "Smart_Project":
             col.prop(tmg_uv_vars, 'sp_angle_limit')
-            col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'sp_margin')
             col.prop(tmg_uv_vars, 'sp_area_weight')
             col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'sp_correct_aspect')
@@ -828,7 +829,7 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
             col.prop(tmg_uv_vars, 'li_new_image')
             col.prop(tmg_uv_vars, 'li_image_size')
             col.prop(tmg_uv_vars, 'li_pack_quality')
-            col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'li_margin')
 
         else:
             col.label(text='No options')
