@@ -25,6 +25,8 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     ('Lightmap', 'Lightmap', '')
     ])
 
+    selectAllFaces : bpy.props.BoolProperty(name="select all faces", default=False, description='Select all faces before unwrapping')
+
     # smart_project
     sp_angle_limit : bpy.props.FloatProperty(name="angle_limit", default=0.785398, min=0, max=1.55334, description='')
     # sp_island_margin : bpy.props.FloatProperty(name="island_margin", default=0.02, min=0, max=1.0, description='')
@@ -257,6 +259,9 @@ class OBJECT_PT_Unwrap(Operator):
             
             bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
 
+            if tmg_uv_vars.selectAllFaces:
+                bpy.ops.mesh.select_all(action='SELECT')
+
             if tmg_uv_vars.unwrapTypes == "Unwrap":
                 bpy.ops.uv.unwrap(
                     method=tmg_uv_vars.unwrapMethod, 
@@ -273,11 +278,7 @@ class OBJECT_PT_Unwrap(Operator):
                     correct_aspect=tmg_uv_vars.sp_correct_aspect, 
                     scale_to_bounds=tmg_uv_vars.sp_scale_to_bounds)
 
-            elif  tmg_uv_vars.unwrapTypes == "Lightmap":
-                # if tmg_uv_vars.li_selection = 
-                # sel_context = "SEL_FACES"
-                # sel_context = "SEL_ALL"
-                
+            elif  tmg_uv_vars.unwrapTypes == "Lightmap":                
                 bpy.ops.uv.lightmap_pack(
                     PREF_CONTEXT=tmg_uv_vars.li_selection, 
                     PREF_PACK_IN_ONE=tmg_uv_vars.li_share_texture_space,
@@ -289,10 +290,11 @@ class OBJECT_PT_Unwrap(Operator):
             
             bpy.ops.object.mode_set(mode='OBJECT')
 
-            o_sel_uvs = [uv for uv in o_uvs if uv.name == self.name]
-            while len(o_sel_uvs) >= 1:      
-                uv = o_sel_uvs.pop() 
-                ob.data.uv_layers[uv.name].active = True 
+            if o_uvs:
+                o_sel_uvs = [uv for uv in o_uvs if uv.name == self.name]
+                while len(o_sel_uvs) >= 1:      
+                    uv = o_sel_uvs.pop() 
+                    ob.data.uv_layers[uv.name].active = True 
 
         return {'FINISHED'}
 
@@ -495,7 +497,9 @@ class OBJECT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
 
         col.prop(tmg_uv_vars, 'unwrapTypes')
 
+
         if tmg_uv_vars.unwrapTypes == "Unwrap":
+            col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'un_fill_holes')
             col.prop(tmg_uv_vars, 'un_correct_aspect')
             col.prop(tmg_uv_vars, 'un_use_subsurf_data')
@@ -505,11 +509,13 @@ class OBJECT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
             col.prop(tmg_uv_vars, 'sp_angle_limit')
             col.prop(tmg_uv_vars, 'un_margin')
             col.prop(tmg_uv_vars, 'sp_area_weight')
+            col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'sp_correct_aspect')
             col.prop(tmg_uv_vars, 'sp_scale_to_bounds')
 
         elif  tmg_uv_vars.unwrapTypes == "Lightmap":
             col.prop(tmg_uv_vars, 'li_selection')
+            col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'li_share_texture_space')
             col.prop(tmg_uv_vars, 'li_new_uv_map')
             col.prop(tmg_uv_vars, 'li_new_image')
