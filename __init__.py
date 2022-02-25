@@ -42,13 +42,19 @@ classes = (
     OBJECT_PT_SelectOB,
     OBJECT_PT_SelectUV,
     OBJECT_PT_Unwrap,
+    EDIT_PT_Unwrap,
     
-    ## UV Panel
+    ## UV Object Panel
     OBJECT_PT_TMG_Object_Panel,
     OBJECT_PT_TMG_Object_Panel_List,
     OBJECT_PT_TMG_UV_Panel, 
     OBJECT_PT_TMG_Unwrap_Settings_Panel,
     OBJECT_PT_TMG_UV_Panel_List,
+
+    ## UV Edit Panel
+    EDIT_PT_TMG_UV_Panel,
+    EDIT_PT_TMG_Unwrap_Settings_Panel,
+    EDIT_PT_TMG_UV_Panel_List,
 )
 
 def register():
