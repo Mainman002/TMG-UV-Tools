@@ -6,13 +6,13 @@ from bpy.types import Operator, Header
 
 
 # Update Blender UI Panels
-def tag_redraw(context, space_type="PROPERTIES", region_type="WINDOW"):
-    for window in context.window_manager.windows:
-        for area in window.screen.areas:
-            if area.spaces[0].type == space_type:
-                for region in area.regions:
-                    if region.type == region_type:
-                        region.tag_redraw()
+# def tag_redraw(context, space_type="PROPERTIES", region_type="WINDOW"):
+#     for window in context.window_manager.windows:
+#         for area in window.screen.areas:
+#             if area.spaces[0].type == space_type:
+#                 for region in area.regions:
+#                     if region.type == region_type:
+#                         region.tag_redraw()
 
 
 class TMG_UV_Properties(bpy.types.PropertyGroup):
@@ -25,12 +25,17 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     ('Lightmap', 'Lightmap', '')
     ])
 
+    packMethod : bpy.props.EnumProperty(name='Pack', default='individual', description='',
+    items=[
+    ('individual', 'individual', ''),
+    ('all_together', 'all_together', '')
+    ])
+
     selectAllFaces : bpy.props.BoolProperty(name="select all faces", default=False, description='Select all faces before unwrapping')
 
     # smart_project
-    sp_angle_limit : bpy.props.FloatProperty(name="angle_limit", default=0.785398, min=0, max=1.55334, description='')
-    # sp_island_margin : bpy.props.FloatProperty(name="island_margin", default=0.02, min=0, max=1.0, description='')
-    sp_area_weight : bpy.props.FloatProperty(name="area_weight", default=0.02, min=0, max=1.0, description='')
+    sp_angle_limit : bpy.props.FloatProperty(name="angle_limit", default=0.785398, min=0, soft_max=1.55334, description='')
+    sp_area_weight : bpy.props.FloatProperty(name="area_weight", default=0.02, min=0, soft_max=1.0, description='')
     sp_correct_aspect : bpy.props.BoolProperty(name="correct_aspect", default=True, description='')
     sp_scale_to_bounds : bpy.props.BoolProperty(name="scale_to_bounds", default=False, description='')
 
@@ -44,7 +49,7 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     un_fill_holes : bpy.props.BoolProperty(name="fill_holes", default=True, description='')
     un_correct_aspect : bpy.props.BoolProperty(name="correct_aspect", default=True, description='')
     un_use_subsurf_data : bpy.props.BoolProperty(name="use_subsurf_data", default=False, description='')
-    un_margin : bpy.props.FloatProperty(name="margin", default=0.02, min=0, max=1.0, description='')
+    un_margin : bpy.props.FloatProperty(name="margin", default=0.2, min=0, soft_max=1.0, description='')
 
     # Lightmap
     li_selection : bpy.props.EnumProperty(name='Unwrap', default='SEL_FACES', description='',
@@ -56,8 +61,8 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     li_share_texture_space : bpy.props.BoolProperty(name="share_texture_space", default=True, description='')
     li_new_uv_map : bpy.props.BoolProperty(name="new_uv_map", default=False, description='')
     li_new_image : bpy.props.BoolProperty(name="new_image", default=False, description='')
-    li_image_size : bpy.props.IntProperty(name="image_size", default=128, min=64, max=1024, description='')
-    li_pack_quality : bpy.props.IntProperty(name="pack_quality", default=12, min=1, max=100, description='')
+    li_image_size : bpy.props.IntProperty(name="image_size", default=128, min=64, soft_max=5000, description='')
+    li_pack_quality : bpy.props.IntProperty(name="pack_quality", default=12, min=1, soft_max=48, description='')
 
 
 class OBJECT_PT_SelectOB(Operator):
@@ -66,14 +71,13 @@ class OBJECT_PT_SelectOB(Operator):
     bl_idname = "tmg_uv.select_ob"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="Object Name")
+    name : bpy.props.StringProperty(name='UVMap')
 
     def execute(self, context):
         scene = context.scene
         tmg_uv_vars = scene.tmg_uv_vars
         bpy.context.view_layer.objects.active = bpy.data.objects[self.name]
-        bpy.data.objects[self.name].select_set(True) 
-        # tag_redraw(context)
+        bpy.data.objects[self.name].select_set(True)         
         return {'FINISHED'}
 
 
@@ -83,7 +87,7 @@ class OBJECT_PT_DeleteOB(Operator):
     bl_idname = "tmg_uv.delete_ob"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="Object Name")
+    name : bpy.props.StringProperty(name='UVMap')
 
     def execute(self, context):
         scene = context.scene
@@ -94,7 +98,6 @@ class OBJECT_PT_DeleteOB(Operator):
 
         if bpy.context.view_layer.objects.active == bpy.data.objects[self.name]:
             bpy.context.view_layer.objects.active = None
-            # tag_redraw(context)
 
         if bpy.data.objects[self.name]:
             bpy.data.objects.remove(bpy.data.objects[self.name], do_unlink=True)
@@ -108,18 +111,17 @@ class OBJECT_PT_SelectUV(Operator):
     bl_idname = "tmg_uv.select_uv"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="UV Name")
+    name : bpy.props.StringProperty(name='UVMap')
 
     def execute(self, context):
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
 
             while len(sel_uvs) >= 1:      
                 uv = sel_uvs.pop() 
-                ob.data.uv_layers[uv.name].active = True 
-        # tag_redraw(context)
+                ob.data.uv_layers[uv.name].active = True         
         return {'FINISHED'}
 
 
@@ -129,18 +131,17 @@ class OBJECT_PT_DeleteUV(Operator):
     bl_idname = "tmg_uv.delete_uv"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="UV Name")
+    name : bpy.props.StringProperty(name='UVMap')
 
     def execute(self, context):
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
 
             while len(sel_uvs) >= 1:      
                 uv = sel_uvs.pop() 
-                ob.data.uv_layers.remove(ob.data.uv_layers[uv.name])
-        # tag_redraw(context)
+                ob.data.uv_layers.remove(ob.data.uv_layers[uv.name])        
         return {'FINISHED'}
 
 
@@ -152,15 +153,14 @@ class OBJECT_PT_DeleteAllUV(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             sel_uvs = [uv for uv in ob.data.uv_layers if ob.data.uv_layers.get(uv.name)]
 
             while len(sel_uvs) >= 1:      
                 uv = sel_uvs.pop() 
-                ob.data.uv_layers.remove(layer=uv)
-        # tag_redraw(context)
+                ob.data.uv_layers.remove(layer=uv)        
         return {'FINISHED'}
 
 
@@ -170,14 +170,13 @@ class OBJECT_PT_AddUV(Operator):
     bl_idname = "tmg_uv.add_uv"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="UVMap")
+    name : bpy.props.StringProperty(name='UVMap')
 
     def execute(self, context):
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
-            ob.data.uv_layers.new(name=self.name)
-        # tag_redraw(context)
+            ob.data.uv_layers.new(name=self.name)        
         return {'FINISHED'}
 
 
@@ -187,19 +186,18 @@ class OBJECT_PT_RenameUV(Operator):
     bl_idname = "tmg_uv.rename_uv"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="UVMap")
-    rename : bpy.props.StringProperty(name="UVMap")
+    name : bpy.props.StringProperty(name='UVMap')
+    rename : bpy.props.StringProperty(name='UVMap')
 
     def execute(self, context):
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
 
             while len(sel_uvs) >= 1:      
                 uv = sel_uvs.pop() 
-                ob.data.uv_layers[uv.name].name = self.rename
-        # tag_redraw(context)
+                ob.data.uv_layers[uv.name].name = self.rename        
         return {'FINISHED'}
 
 
@@ -209,18 +207,17 @@ class OBJECT_PT_ActiveRenderUV(Operator):
     bl_idname = "tmg_uv.active_render_uv"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="UVMap")
+    name : bpy.props.StringProperty(name='UVMap')
 
     def execute(self, context):
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
 
             while len(sel_uvs) >= 1:      
                 uv = sel_uvs.pop() 
-                ob.data.uv_layers[uv.name].active_render = True
-        # tag_redraw(context)
+                ob.data.uv_layers[uv.name].active_render = True        
         return {'FINISHED'}
 
 
@@ -230,141 +227,131 @@ class OBJECT_PT_Unwrap(Operator):
     bl_idname = "tmg_uv.object_unwrap_uv"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="UVMap")
+
+    name : bpy.props.StringProperty(name='UVMap')
+
+    def draw(self, context):
+        scene = context.scene
+        tmg_uv_vars = scene.tmg_uv_vars        
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+        layout = layout.column()
+             
+        box = layout.box()
+        col = box.column(align=False)
+        row = col.row(align=True)  
+
+        col.prop(tmg_uv_vars, 'unwrapTypes')
+
+        if tmg_uv_vars.unwrapTypes == "Unwrap":
+            col.prop(tmg_uv_vars, 'selectAllFaces')
+            col.prop(tmg_uv_vars, 'un_fill_holes')
+            col.prop(tmg_uv_vars, 'un_correct_aspect')
+            col.prop(tmg_uv_vars, 'un_use_subsurf_data')
+            col.prop(tmg_uv_vars, 'un_margin')
+
+        elif tmg_uv_vars.unwrapTypes == "Smart_Project":
+            col.prop(tmg_uv_vars, 'sp_angle_limit')
+            col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'sp_area_weight')
+            col.prop(tmg_uv_vars, 'selectAllFaces')
+            col.prop(tmg_uv_vars, 'sp_correct_aspect')
+            col.prop(tmg_uv_vars, 'sp_scale_to_bounds')
+
+        elif  tmg_uv_vars.unwrapTypes == "Lightmap":
+            col.prop(tmg_uv_vars, 'li_selection')
+            col.prop(tmg_uv_vars, 'selectAllFaces')
+            col.prop(tmg_uv_vars, 'li_share_texture_space')
+            col.prop(tmg_uv_vars, 'li_new_uv_map')
+            col.prop(tmg_uv_vars, 'li_new_image')
+            col.prop(tmg_uv_vars, 'li_image_size')
+            col.prop(tmg_uv_vars, 'li_pack_quality')
+            col.prop(tmg_uv_vars, 'un_margin')
+
+        else:
+            col.label(text='No options')
 
     def execute(self, context):
         scene = context.scene
         tmg_uv_vars = scene.tmg_uv_vars
         o_uvs = []
+        o_objs = []
+        # temp_sName = str(self.name)
 
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH' and obj.data.uv_layers.get(self.name)]
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
-            
-            sel_uvsO = [uv for uv in ob.data.uv_layers if uv.active == True]
-            while len(sel_uvsO) >= 1:      
-                uv = sel_uvsO.pop() 
-                o_uvs.append(uv)
+            o_objs.append(ob)
 
-            sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
-            while len(sel_uvs) >= 1:      
-                uv = sel_uvs.pop() 
-                ob.data.uv_layers[uv.name].active = True 
-            
+            if ob.mode != 'OBJECT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+
             bpy.ops.object.select_all(action='DESELECT')
             bpy.context.view_layer.objects.active = ob
             ob.select_set(state=True)
-            
-            bpy.ops.object.mode_set(mode='EDIT')
-            
-            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
 
-            if tmg_uv_vars.selectAllFaces:
-                bpy.ops.mesh.select_all(action='SELECT')
+            if ob.type == 'MESH':   
+                sel_uvsO = [uv for uv in ob.data.uv_layers if uv.active == True]
+                while len(sel_uvsO) >= 1:      
+                    uv = sel_uvsO.pop() 
+                    o_uvs.append(uv)
 
-            if tmg_uv_vars.unwrapTypes == "Unwrap":
-                bpy.ops.uv.unwrap(
-                    method=tmg_uv_vars.unwrapMethod, 
-                    fill_holes=tmg_uv_vars.un_fill_holes, 
-                    correct_aspect=tmg_uv_vars.un_correct_aspect, 
-                    use_subsurf_data=tmg_uv_vars.un_use_subsurf_data, 
-                    margin=tmg_uv_vars.un_margin)
-
-            elif tmg_uv_vars.unwrapTypes == "Smart_Project":
-                bpy.ops.uv.smart_project(
-                    angle_limit=tmg_uv_vars.sp_angle_limit, 
-                    island_margin=tmg_uv_vars.un_margin, 
-                    area_weight=tmg_uv_vars.sp_area_weight,
-                    correct_aspect=tmg_uv_vars.sp_correct_aspect, 
-                    scale_to_bounds=tmg_uv_vars.sp_scale_to_bounds)
-
-            elif  tmg_uv_vars.unwrapTypes == "Lightmap":                
-                bpy.ops.uv.lightmap_pack(
-                    PREF_CONTEXT=tmg_uv_vars.li_selection, 
-                    PREF_PACK_IN_ONE=tmg_uv_vars.li_share_texture_space,
-                    PREF_NEW_UVLAYER=tmg_uv_vars.li_new_uv_map,
-                    PREF_APPLY_IMAGE=tmg_uv_vars.li_new_image,
-                    PREF_IMG_PX_SIZE=tmg_uv_vars.li_image_size,
-                    PREF_BOX_DIV=tmg_uv_vars.li_pack_quality,
-                    PREF_MARGIN_DIV=tmg_uv_vars.un_margin)
-            
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-            if o_uvs:
-                o_sel_uvs = [uv for uv in o_uvs if uv.name == self.name]
-                while len(o_sel_uvs) >= 1:      
-                    uv = o_sel_uvs.pop() 
+                sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
+                while len(sel_uvs) >= 1:      
+                    uv = sel_uvs.pop() 
                     ob.data.uv_layers[uv.name].active = True 
+                
+                if ob.mode != 'EDIT':
+                    bpy.ops.object.mode_set(mode='EDIT')
+                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
 
-        return {'FINISHED'}
+                if tmg_uv_vars.selectAllFaces:
+                    bpy.ops.mesh.select_all(action='SELECT')
 
+                if tmg_uv_vars.unwrapTypes == "Unwrap":
+                    bpy.ops.uv.unwrap(
+                        method = tmg_uv_vars.unwrapMethod, 
+                        fill_holes = tmg_uv_vars.un_fill_holes, 
+                        correct_aspect = tmg_uv_vars.un_correct_aspect, 
+                        use_subsurf_data = tmg_uv_vars.un_use_subsurf_data, 
+                        margin = tmg_uv_vars.un_margin)
 
-class EDIT_PT_Unwrap(Operator):
-    """Unwrap uvs of selected objects"""
+                elif tmg_uv_vars.unwrapTypes == "Smart_Project":
+                    bpy.ops.uv.smart_project(
+                        angle_limit = tmg_uv_vars.sp_angle_limit, 
+                        island_margin = tmg_uv_vars.un_margin, 
+                        area_weight = tmg_uv_vars.sp_area_weight,
+                        correct_aspect = tmg_uv_vars.sp_correct_aspect, 
+                        scale_to_bounds = tmg_uv_vars.sp_scale_to_bounds)
 
-    bl_idname = "tmg_uv.edit_unwrap_uv"
-    bl_label = ""
-    bl_options = {'REGISTER', 'UNDO'}
-    name : bpy.props.StringProperty(name="UVMap")
+                elif  tmg_uv_vars.unwrapTypes == "Lightmap":                
+                    bpy.ops.uv.lightmap_pack(
+                        PREF_CONTEXT = tmg_uv_vars.li_selection, 
+                        PREF_PACK_IN_ONE = tmg_uv_vars.li_share_texture_space,
+                        PREF_NEW_UVLAYER = tmg_uv_vars.li_new_uv_map,
+                        PREF_APPLY_IMAGE = tmg_uv_vars.li_new_image,
+                        PREF_IMG_PX_SIZE = tmg_uv_vars.li_image_size,
+                        PREF_BOX_DIV = tmg_uv_vars.li_pack_quality,
+                        PREF_MARGIN_DIV = tmg_uv_vars.un_margin)
+                
+                if ob.mode != 'OBJECT':
+                    bpy.ops.object.mode_set(mode='OBJECT')
 
-    def execute(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
-        o_uvs = []
+        for ob in o_objs:
+            if ob.type == 'MESH':
+                if ob.data.uv_layers.get(self.name):
+                    # print("Has: ", ob.data.uv_layers.get(self.name))
 
-        # if ob.mode == 'OBJECT':
-        # elif ob.mode == 'EDIT':
+                    ob.data.uv_layers[self.name].active = True 
+                    bpy.context.view_layer.objects.active = ob
+                    ob.select_set(state=True)
+                else:
+                    print("UV layer not found")
 
-        ob = bpy.context.active_object
-        if ob.type == 'MESH':   
-            sel_uvsO = [uv for uv in ob.data.uv_layers if uv.active == True]
-            while len(sel_uvsO) >= 1:      
-                uv = sel_uvsO.pop() 
-                o_uvs.append(uv)
-
-            sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
-            while len(sel_uvs) >= 1:      
-                uv = sel_uvs.pop() 
-                ob.data.uv_layers[uv.name].active = True 
-            
-            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
-
-            if tmg_uv_vars.selectAllFaces:
-                bpy.ops.mesh.select_all(action='SELECT')
-
-            if tmg_uv_vars.unwrapTypes == "Unwrap":
-                bpy.ops.uv.unwrap(
-                    method=tmg_uv_vars.unwrapMethod, 
-                    fill_holes=tmg_uv_vars.un_fill_holes, 
-                    correct_aspect=tmg_uv_vars.un_correct_aspect, 
-                    use_subsurf_data=tmg_uv_vars.un_use_subsurf_data, 
-                    margin=tmg_uv_vars.un_margin)
-
-            elif tmg_uv_vars.unwrapTypes == "Smart_Project":
-                bpy.ops.uv.smart_project(
-                    angle_limit=tmg_uv_vars.sp_angle_limit, 
-                    island_margin=tmg_uv_vars.un_margin, 
-                    area_weight=tmg_uv_vars.sp_area_weight,
-                    correct_aspect=tmg_uv_vars.sp_correct_aspect, 
-                    scale_to_bounds=tmg_uv_vars.sp_scale_to_bounds)
-
-            elif  tmg_uv_vars.unwrapTypes == "Lightmap":                
-                bpy.ops.uv.lightmap_pack(
-                    PREF_CONTEXT=tmg_uv_vars.li_selection, 
-                    PREF_PACK_IN_ONE=tmg_uv_vars.li_share_texture_space,
-                    PREF_NEW_UVLAYER=tmg_uv_vars.li_new_uv_map,
-                    PREF_APPLY_IMAGE=tmg_uv_vars.li_new_image,
-                    PREF_IMG_PX_SIZE=tmg_uv_vars.li_image_size,
-                    PREF_BOX_DIV=tmg_uv_vars.li_pack_quality,
-                    PREF_MARGIN_DIV=tmg_uv_vars.un_margin)
-            
-            # bpy.ops.object.mode_set(mode='OBJECT')
-
-            if o_uvs:
-                o_sel_uvs = [uv for uv in o_uvs if uv.name == self.name]
-                while len(o_sel_uvs) >= 1:      
-                    uv = o_sel_uvs.pop() 
-                    ob.data.uv_layers[uv.name].active = True 
+            if ob.mode != 'EDIT':
+                bpy.ops.object.mode_set(mode='EDIT')
 
         return {'FINISHED'}
 
@@ -394,7 +381,7 @@ class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
 
         objs = []
 
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             objs.append(ob)
@@ -410,7 +397,7 @@ class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
              
         objs = []
 
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             objs.append(ob)
@@ -428,7 +415,7 @@ class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
             row = col.row(align=True)
 
             # if bpy.context.space_data.objects == ob:
-            if bpy.context.selected_objects == ob:
+            if bpy.context.view_layer.objects.selected == ob:
                 prop = row.operator("tmg_uv.select_ob", text=ob.name, emboss=False) #  icon="RESTRICT_SELECT_OFF",
             else:
                 prop = row.operator("tmg_uv.select_ob", text=ob.name, emboss=True) #  icon="RESTRICT_SELECT_ON",
@@ -464,7 +451,7 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
         objs = []
         uvs = []
 
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             objs.append(ob)
@@ -482,8 +469,7 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
     def draw(self, context):
         scene = context.scene
         props = scene.eevee
-        tmg_uv_vars = scene.tmg_uv_vars
-        # layout = self.layout
+        tmg_uv_vars = scene.tmg_uv_vars        
 
         layout = self.layout
         layout.use_property_split = True
@@ -494,7 +480,7 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
         uvs = []
         uvsData = []
 
-        for ob in bpy.context.selected_objects:
+        for ob in bpy.context.view_layer.objects.selected:
             if ob.type == "MESH":
                 objs.append(ob)
                 for uv in ob.data.uv_layers:
@@ -518,7 +504,7 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
         for uv in uvs:
             row = col.row(align=True)
 
-            if bpy.context.selected_objects == uv:
+            if bpy.context.view_layer.objects.selected == uv:
                 prop = row.operator("tmg_uv.select_uv", text=uv, emboss=False) #  icon="RESTRICT_SELECT_OFF",
             else:
                 prop = row.operator("tmg_uv.select_uv", text=uv, emboss=True) #  icon="RESTRICT_SELECT_ON",
@@ -527,9 +513,6 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
             prop = row.operator("tmg_uv.rename_uv", text='', icon="GREASEPENCIL")
             prop.name = uv
             prop.rename = tmg_uv_vars.uvName
-
-            prop = row.operator("tmg_uv.object_unwrap_uv", text='', icon="MOD_UVPROJECT")
-            prop.name = uv  
 
             for uvD in uvsData:
                 if uvD.name == uv:
@@ -543,18 +526,22 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
             prop.name = uv        
 
 
-class OBJECT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
-    bl_idname = "OBJECT_PT_tmg_unwrap_settings_panel"
-    bl_label = "Settings"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_parent_id = "OBJECT_PT_tmg_uv_panel"
-    bl_options = {"DEFAULT_CLOSED"}
-        
+
+##### Edit Mode Panels #################################################################################
+
+
+class EDIT_PT_Unwrap(Operator):
+    """Unwrap uvs of selected objects"""
+
+    bl_idname = "tmg_uv.edit_unwrap_uv"
+    bl_label = ""
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name : bpy.props.StringProperty(name='UVMap')
+
     def draw(self, context):
         scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
-        # layout = self.layout
+        tmg_uv_vars = scene.tmg_uv_vars        
 
         layout = self.layout
         layout.use_property_split = True
@@ -567,6 +554,7 @@ class OBJECT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
 
         col.prop(tmg_uv_vars, 'unwrapTypes')
 
+        col.prop(tmg_uv_vars, 'packMethod')
 
         if tmg_uv_vars.unwrapTypes == "Unwrap":
             col.prop(tmg_uv_vars, 'selectAllFaces')
@@ -596,9 +584,89 @@ class OBJECT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
         else:
             col.label(text='No options')
 
+    def execute(self, context):
+        scene = context.scene
+        tmg_uv_vars = scene.tmg_uv_vars
+        o_uvs = []
+        o_objs = []
+        # temp_sName = str(self.name)
 
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH' and obj.data.uv_layers.get(self.name)]
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            o_objs.append(ob)
 
-##### Edit Mode Panels #################################################################################
+            if ob.mode != 'OBJECT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+
+            if tmg_uv_vars.packMethod == 'individual':
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.context.view_layer.objects.active = ob
+                ob.select_set(state=True)
+
+            if ob.type == 'MESH':   
+                sel_uvsO = [uv for uv in ob.data.uv_layers if uv.active == True]
+                while len(sel_uvsO) >= 1:      
+                    uv = sel_uvsO.pop() 
+                    o_uvs.append(uv)
+
+                sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
+                while len(sel_uvs) >= 1:      
+                    uv = sel_uvs.pop() 
+                    ob.data.uv_layers[uv.name].active = True 
+                
+                if ob.mode != 'EDIT':
+                    bpy.ops.object.mode_set(mode='EDIT')
+                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+
+                if tmg_uv_vars.selectAllFaces:
+                    bpy.ops.mesh.select_all(action='SELECT')
+
+                if tmg_uv_vars.unwrapTypes == "Unwrap":
+                    bpy.ops.uv.unwrap(
+                        method = tmg_uv_vars.unwrapMethod, 
+                        fill_holes = tmg_uv_vars.un_fill_holes, 
+                        correct_aspect = tmg_uv_vars.un_correct_aspect, 
+                        use_subsurf_data = tmg_uv_vars.un_use_subsurf_data, 
+                        margin = tmg_uv_vars.un_margin)
+
+                elif tmg_uv_vars.unwrapTypes == "Smart_Project":
+                    bpy.ops.uv.smart_project(
+                        angle_limit = tmg_uv_vars.sp_angle_limit, 
+                        island_margin = tmg_uv_vars.un_margin, 
+                        area_weight = tmg_uv_vars.sp_area_weight,
+                        correct_aspect = tmg_uv_vars.sp_correct_aspect, 
+                        scale_to_bounds = tmg_uv_vars.sp_scale_to_bounds)
+
+                elif  tmg_uv_vars.unwrapTypes == "Lightmap":                
+                    bpy.ops.uv.lightmap_pack(
+                        PREF_CONTEXT = tmg_uv_vars.li_selection, 
+                        PREF_PACK_IN_ONE = tmg_uv_vars.li_share_texture_space,
+                        PREF_NEW_UVLAYER = tmg_uv_vars.li_new_uv_map,
+                        PREF_APPLY_IMAGE = tmg_uv_vars.li_new_image,
+                        PREF_IMG_PX_SIZE = tmg_uv_vars.li_image_size,
+                        PREF_BOX_DIV = tmg_uv_vars.li_pack_quality,
+                        PREF_MARGIN_DIV = tmg_uv_vars.un_margin)
+                
+                if ob.mode != 'OBJECT':
+                    bpy.ops.object.mode_set(mode='OBJECT')
+
+        for ob in o_objs:
+            if ob.type == 'MESH':
+                if ob.data.uv_layers.get(self.name):
+                    # print("Has: ", ob.data.uv_layers.get(self.name))
+
+                    ob.data.uv_layers[self.name].active = True 
+                    bpy.context.view_layer.objects.active = ob
+                    ob.select_set(state=True)
+                else:
+                    print("UV layer not found")
+
+            if ob.mode != 'EDIT':
+                bpy.ops.object.mode_set(mode='EDIT')
+
+        return {'FINISHED'}
+
 
 class EDIT_PT_TMG_UV_Panel(bpy.types.Panel):
     bl_idname = 'EDIT_PT_tmg_uv_panel'
@@ -607,6 +675,14 @@ class EDIT_PT_TMG_UV_Panel(bpy.types.Panel):
     bl_label = 'UV'
     bl_region_type = 'UI'
     bl_category = 'TMG UV'
+
+    @classmethod
+    def poll(cls, context):
+        # ob = context.active_object
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
+        while len(sel_objs) >= 1:      
+            ob = sel_objs.pop() 
+            return ob and ob.mode == 'EDIT'
 
     def draw(self, context):
         layout = self.layout
@@ -626,7 +702,7 @@ class EDIT_PT_TMG_UV_Panel_List(bpy.types.Panel):
         objs = []
         uvs = []
 
-        sel_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH']
         while len(sel_objs) >= 1:      
             ob = sel_objs.pop() 
             objs.append(ob)
@@ -644,8 +720,7 @@ class EDIT_PT_TMG_UV_Panel_List(bpy.types.Panel):
     def draw(self, context):
         scene = context.scene
         props = scene.eevee
-        tmg_uv_vars = scene.tmg_uv_vars
-        # layout = self.layout
+        tmg_uv_vars = scene.tmg_uv_vars        
 
         layout = self.layout
         layout.use_property_split = True
@@ -656,7 +731,7 @@ class EDIT_PT_TMG_UV_Panel_List(bpy.types.Panel):
         uvs = []
         uvsData = []
 
-        for ob in bpy.context.selected_objects:
+        for ob in bpy.context.view_layer.objects.selected:
             if ob.type == "MESH":
                 objs.append(ob)
                 for uv in ob.data.uv_layers:
@@ -680,7 +755,7 @@ class EDIT_PT_TMG_UV_Panel_List(bpy.types.Panel):
         for uv in uvs:
             row = col.row(align=True)
 
-            if bpy.context.selected_objects == uv:
+            if bpy.context.view_layer.objects.selected == uv:
                 prop = row.operator("tmg_uv.select_uv", text=uv, emboss=False) #  icon="RESTRICT_SELECT_OFF",
             else:
                 prop = row.operator("tmg_uv.select_uv", text=uv, emboss=True) #  icon="RESTRICT_SELECT_ON",
@@ -715,8 +790,7 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
         
     def draw(self, context):
         scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
-        # layout = self.layout
+        tmg_uv_vars = scene.tmg_uv_vars        
 
         layout = self.layout
         layout.use_property_split = True
@@ -728,6 +802,7 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
         row = col.row(align=True)  
 
         col.prop(tmg_uv_vars, 'unwrapTypes')
+        col.prop(tmg_uv_vars, 'packMethod')
 
 
         if tmg_uv_vars.unwrapTypes == "Unwrap":

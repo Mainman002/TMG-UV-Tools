@@ -48,7 +48,6 @@ classes = (
     OBJECT_PT_TMG_Object_Panel,
     OBJECT_PT_TMG_Object_Panel_List,
     OBJECT_PT_TMG_UV_Panel, 
-    OBJECT_PT_TMG_Unwrap_Settings_Panel,
     OBJECT_PT_TMG_UV_Panel_List,
 
     ## UV Edit Panel
