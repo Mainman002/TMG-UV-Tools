@@ -3,7 +3,7 @@ import bpy, sys, os
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty, FloatProperty, FloatVectorProperty, PointerProperty
 from bpy.types import Operator, Header
-
+import bmesh
 
 # Update Blender UI Panels
 # def tag_redraw(context, space_type="PROPERTIES", region_type="WINDOW"):
@@ -17,6 +17,11 @@ from bpy.types import Operator, Header
 
 class TMG_UV_Properties(bpy.types.PropertyGroup):
     uvName : bpy.props.StringProperty(name='UVMap', default='UVMap', description='Name to set uv layer to')
+    clear_seams : bpy.props.BoolProperty(name="Clear Seams", default=False, description='Remove UV seams')
+    island_seams : bpy.props.BoolProperty(name="Island Seams", default=False, description='Add seams to islands after unwrap')
+
+    mark_sharp : bpy.props.BoolProperty(name="Mark Sharp", default=False, description='Select and mark sharp edges')
+    sharpness : bpy.props.FloatProperty(name="sharpness", default=0.87, min=0.01, soft_max=3.14, description='Edge sharpness for uv calculations')
 
     unwrapTypes : bpy.props.EnumProperty(name='Method', default='Unwrap', description='',
     items=[
@@ -66,6 +71,40 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     li_pack_quality : bpy.props.IntProperty(name="pack_quality", default=20, min=1, soft_max=48, description='')
     li_margin : bpy.props.FloatProperty(name="margin", default=0.05, min=0.0, soft_max=1.0, description='')
 
+def remember_faces(_obj, _list):
+    if _obj.mode == 'EDIT':
+        bm=bmesh.from_edit_mesh(_obj.data)
+        for face in bm.faces:
+            if face.select:
+                _list.append(face)
+    return {'FINISHED'}
+            
+def seam_islands(_obj):
+    if _obj.mode == 'EDIT':
+        bm=bmesh.from_edit_mesh(_obj.data)
+        for face in bm.verts:
+            if face.select:
+                bpy.ops.mesh.select_all(action='SELECT')
+                bpy.ops.uv.seams_from_islands()
+                
+        bpy.ops.mesh.select_all(action='DESELECT')
+    return {'FINISHED'}
+
+def select_faces(_obj, _list):
+    if _obj.mode == 'EDIT':
+        bm=bmesh.from_edit_mesh(_obj.data)
+        for face in _list:
+            if face:
+                face.select = True
+    return {'FINISHED'}
+
+def unwrap_ob(_obj, _list):
+    if _obj.mode == 'EDIT':
+        bm=bmesh.from_edit_mesh(_obj.data)
+        remember_faces(_obj, _list)
+        seam_islands(_obj)
+        select_faces(_obj, _list)
+    return {'FINISHED'}
 
 class OBJECT_PT_SelectOB(Operator):
     """Select object from scene and set it to active"""
@@ -564,6 +603,12 @@ class EDIT_PT_Unwrap(Operator):
             col.prop(tmg_uv_vars, 'un_correct_aspect')
             col.prop(tmg_uv_vars, 'un_use_subsurf_data')
             col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'clear_seams')
+            col.prop(tmg_uv_vars, 'island_seams')
+            
+            col.prop(tmg_uv_vars, 'mark_sharp')
+            if tmg_uv_vars.mark_sharp:
+                col.prop(tmg_uv_vars, 'sharpness')
 
         elif tmg_uv_vars.unwrapTypes == "Smart_Project":
             col.prop(tmg_uv_vars, 'sp_angle_limit')
@@ -572,6 +617,12 @@ class EDIT_PT_Unwrap(Operator):
             col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'sp_correct_aspect')
             col.prop(tmg_uv_vars, 'sp_scale_to_bounds')
+            col.prop(tmg_uv_vars, 'clear_seams')
+            col.prop(tmg_uv_vars, 'island_seams')
+            
+            col.prop(tmg_uv_vars, 'mark_sharp')
+            if tmg_uv_vars.mark_sharp:
+                col.prop(tmg_uv_vars, 'sharpness')
 
         elif  tmg_uv_vars.unwrapTypes == "Lightmap":
             col.prop(tmg_uv_vars, 'li_selection')
@@ -582,6 +633,12 @@ class EDIT_PT_Unwrap(Operator):
             col.prop(tmg_uv_vars, 'li_image_size')
             col.prop(tmg_uv_vars, 'li_pack_quality')
             col.prop(tmg_uv_vars, 'li_margin')
+            col.prop(tmg_uv_vars, 'clear_seams')
+            col.prop(tmg_uv_vars, 'island_seams')
+            
+            # col.prop(tmg_uv_vars, 'mark_sharp')
+            # if tmg_uv_vars.mark_sharp:
+            #     col.prop(tmg_uv_vars, 'sharpness')
 
         else:
             col.label(text='No options')
@@ -592,6 +649,10 @@ class EDIT_PT_Unwrap(Operator):
         o_uvs = []
         o_objs = []
         # temp_sName = str(self.name)
+
+        face_list = []
+
+        scene.tool_settings.use_uv_select_sync = True
 
         sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH' and obj.data.uv_layers.get(self.name)]
         while len(sel_objs) >= 1:      
@@ -621,7 +682,19 @@ class EDIT_PT_Unwrap(Operator):
                     bpy.ops.object.mode_set(mode='EDIT')
                     bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
 
+                remember_faces(ob, face_list)
+
+                if tmg_uv_vars.clear_seams:
+                    bpy.ops.mesh.mark_seam(clear=True)
+
+                if tmg_uv_vars.mark_sharp:
+                    bpy.ops.mesh.select_all(action='DESELECT')
+                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+                    bpy.ops.mesh.edges_select_sharp(sharpness=tmg_uv_vars.sharpness)
+                    bpy.ops.uv.mark_seam(clear=False)
+
                 if tmg_uv_vars.selectAllFaces:
+                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
                     bpy.ops.mesh.select_all(action='SELECT')
 
                 if tmg_uv_vars.unwrapTypes == "Unwrap":
@@ -665,6 +738,14 @@ class EDIT_PT_Unwrap(Operator):
 
         if ob.mode != 'EDIT':
             bpy.ops.object.mode_set(mode='EDIT')
+
+            # if tmg_uv_vars.clear_seams:
+            #     bpy.ops.mesh.mark_seam(clear=True)
+
+            if tmg_uv_vars.island_seams:
+                seam_islands(ob)
+
+            # select_faces(ob, face_list)
 
         return {'FINISHED'}
 
@@ -812,6 +893,12 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
             col.prop(tmg_uv_vars, 'un_correct_aspect')
             col.prop(tmg_uv_vars, 'un_use_subsurf_data')
             col.prop(tmg_uv_vars, 'un_margin')
+            col.prop(tmg_uv_vars, 'clear_seams')
+            col.prop(tmg_uv_vars, 'island_seams')
+
+            col.prop(tmg_uv_vars, 'mark_sharp')
+            if tmg_uv_vars.mark_sharp:
+                col.prop(tmg_uv_vars, 'sharpness')
 
         elif tmg_uv_vars.unwrapTypes == "Smart_Project":
             col.prop(tmg_uv_vars, 'sp_angle_limit')
@@ -820,6 +907,12 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
             col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'sp_correct_aspect')
             col.prop(tmg_uv_vars, 'sp_scale_to_bounds')
+            col.prop(tmg_uv_vars, 'clear_seams')
+            col.prop(tmg_uv_vars, 'island_seams')
+
+            col.prop(tmg_uv_vars, 'mark_sharp')
+            if tmg_uv_vars.mark_sharp:
+                col.prop(tmg_uv_vars, 'sharpness')
 
         elif  tmg_uv_vars.unwrapTypes == "Lightmap":
             col.prop(tmg_uv_vars, 'li_selection')
@@ -830,6 +923,12 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
             col.prop(tmg_uv_vars, 'li_image_size')
             col.prop(tmg_uv_vars, 'li_pack_quality')
             col.prop(tmg_uv_vars, 'li_margin')
+            col.prop(tmg_uv_vars, 'clear_seams')
+            col.prop(tmg_uv_vars, 'island_seams')
+            
+            # col.prop(tmg_uv_vars, 'mark_sharp')
+            # if tmg_uv_vars.mark_sharp:
+            #     col.prop(tmg_uv_vars, 'sharpness')
 
         else:
             col.label(text='No options')
