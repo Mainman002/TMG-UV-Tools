@@ -41,7 +41,6 @@ classes = (
     OBJECT_PT_RenameUV,
     OBJECT_PT_SelectOB,
     OBJECT_PT_SelectUV,
-    OBJECT_PT_Unwrap,
     EDIT_PT_Unwrap,
     
     ## UV Object Panel

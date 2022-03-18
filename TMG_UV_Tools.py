@@ -1,5 +1,5 @@
-import string
 import bpy, sys, os
+import string
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty, FloatProperty, FloatVectorProperty, PointerProperty
 from bpy.types import Operator, Header
@@ -23,7 +23,7 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     mark_sharp : bpy.props.BoolProperty(name="Mark Sharp", default=False, description='Select and mark sharp edges')
     sharpness : bpy.props.FloatProperty(name="sharpness", default=0.87, min=0.01, soft_max=3.14, description='Edge sharpness for uv calculations')
 
-    unwrapTypes : bpy.props.EnumProperty(name='Method', default='Unwrap', description='',
+    unwrapTypes : bpy.props.EnumProperty(name='Method', default='Smart_Project', description='',
     items=[
     ('Unwrap', 'Unwrap', ''),
     ('Smart_Project', 'Smart_Project', ''),
@@ -71,40 +71,12 @@ class TMG_UV_Properties(bpy.types.PropertyGroup):
     li_pack_quality : bpy.props.IntProperty(name="pack_quality", default=20, min=1, soft_max=48, description='')
     li_margin : bpy.props.FloatProperty(name="margin", default=0.05, min=0.0, soft_max=1.0, description='')
 
-def remember_faces(_obj, _list):
-    if _obj.mode == 'EDIT':
-        bm=bmesh.from_edit_mesh(_obj.data)
-        for face in bm.faces:
-            if face.select:
-                _list.append(face)
-    return {'FINISHED'}
-            
-def seam_islands(_obj):
-    if _obj.mode == 'EDIT':
-        bm=bmesh.from_edit_mesh(_obj.data)
-        for face in bm.verts:
-            if face.select:
-                bpy.ops.mesh.select_all(action='SELECT')
-                bpy.ops.uv.seams_from_islands()
-                
-        bpy.ops.mesh.select_all(action='DESELECT')
-    return {'FINISHED'}
 
-def select_faces(_obj, _list):
-    if _obj.mode == 'EDIT':
-        bm=bmesh.from_edit_mesh(_obj.data)
-        for face in _list:
-            if face:
-                face.select = True
-    return {'FINISHED'}
+def _mode_switch(_mode):
+    if bpy.context.active_object:
+        bpy.ops.object.mode_set(mode=_mode)
+    return{"Finished"}
 
-def unwrap_ob(_obj, _list):
-    if _obj.mode == 'EDIT':
-        bm=bmesh.from_edit_mesh(_obj.data)
-        remember_faces(_obj, _list)
-        seam_islands(_obj)
-        select_faces(_obj, _list)
-    return {'FINISHED'}
 
 class OBJECT_PT_SelectOB(Operator):
     """Select object from scene and set it to active"""
@@ -259,141 +231,6 @@ class OBJECT_PT_ActiveRenderUV(Operator):
             while len(sel_uvs) >= 1:      
                 uv = sel_uvs.pop() 
                 ob.data.uv_layers[uv.name].active_render = True        
-        return {'FINISHED'}
-
-
-class OBJECT_PT_Unwrap(Operator):
-    """Unwrap uvs of selected objects"""
-
-    bl_idname = "tmg_uv.object_unwrap_uv"
-    bl_label = ""
-    bl_options = {'REGISTER', 'UNDO'}
-
-    name : bpy.props.StringProperty(name='UVMap')
-
-    def draw(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars        
-
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False  # No animation.
-        layout = layout.column()
-             
-        box = layout.box()
-        col = box.column(align=False)
-        row = col.row(align=True)  
-
-        col.prop(tmg_uv_vars, 'unwrapTypes')
-
-        if tmg_uv_vars.unwrapTypes == "Unwrap":
-            col.prop(tmg_uv_vars, 'selectAllFaces')
-            col.prop(tmg_uv_vars, 'un_fill_holes')
-            col.prop(tmg_uv_vars, 'un_correct_aspect')
-            col.prop(tmg_uv_vars, 'un_use_subsurf_data')
-            col.prop(tmg_uv_vars, 'un_margin')
-
-        elif tmg_uv_vars.unwrapTypes == "Smart_Project":
-            col.prop(tmg_uv_vars, 'sp_angle_limit')
-            col.prop(tmg_uv_vars, 'sp_margin')
-            col.prop(tmg_uv_vars, 'sp_area_weight')
-            col.prop(tmg_uv_vars, 'selectAllFaces')
-            col.prop(tmg_uv_vars, 'sp_correct_aspect')
-            col.prop(tmg_uv_vars, 'sp_scale_to_bounds')
-
-        elif  tmg_uv_vars.unwrapTypes == "Lightmap":
-            col.prop(tmg_uv_vars, 'li_selection')
-            col.prop(tmg_uv_vars, 'selectAllFaces')
-            col.prop(tmg_uv_vars, 'li_share_texture_space')
-            col.prop(tmg_uv_vars, 'li_new_uv_map')
-            col.prop(tmg_uv_vars, 'li_new_image')
-            col.prop(tmg_uv_vars, 'li_image_size')
-            col.prop(tmg_uv_vars, 'li_pack_quality')
-            col.prop(tmg_uv_vars, 'li_margin')
-
-        else:
-            col.label(text='No options')
-
-    def execute(self, context):
-        scene = context.scene
-        tmg_uv_vars = scene.tmg_uv_vars
-        o_uvs = []
-        o_objs = []
-        # temp_sName = str(self.name)
-
-        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH' and obj.data.uv_layers.get(self.name)]
-        while len(sel_objs) >= 1:      
-            ob = sel_objs.pop() 
-            o_objs.append(ob)
-
-            if ob.mode != 'OBJECT':
-                bpy.ops.object.mode_set(mode='OBJECT')
-
-            bpy.ops.object.select_all(action='DESELECT')
-            bpy.context.view_layer.objects.active = ob
-            ob.select_set(state=True)
-
-            if ob.type == 'MESH':   
-                sel_uvsO = [uv for uv in ob.data.uv_layers if uv.active == True]
-                while len(sel_uvsO) >= 1:      
-                    uv = sel_uvsO.pop() 
-                    o_uvs.append(uv)
-
-                sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
-                while len(sel_uvs) >= 1:      
-                    uv = sel_uvs.pop() 
-                    ob.data.uv_layers[uv.name].active = True 
-                
-                if ob.mode != 'EDIT':
-                    bpy.ops.object.mode_set(mode='EDIT')
-                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
-
-                if tmg_uv_vars.selectAllFaces:
-                    bpy.ops.mesh.select_all(action='SELECT')
-
-                if tmg_uv_vars.unwrapTypes == "Unwrap":
-                    bpy.ops.uv.unwrap(
-                        method = tmg_uv_vars.unwrapMethod, 
-                        fill_holes = tmg_uv_vars.un_fill_holes, 
-                        correct_aspect = tmg_uv_vars.un_correct_aspect, 
-                        use_subsurf_data = tmg_uv_vars.un_use_subsurf_data, 
-                        margin = tmg_uv_vars.un_margin)
-
-                elif tmg_uv_vars.unwrapTypes == "Smart_Project":
-                    bpy.ops.uv.smart_project(
-                        angle_limit = tmg_uv_vars.sp_angle_limit, 
-                        island_margin = tmg_uv_vars.sp_margin, 
-                        area_weight = tmg_uv_vars.sp_area_weight,
-                        correct_aspect = tmg_uv_vars.sp_correct_aspect, 
-                        scale_to_bounds = tmg_uv_vars.sp_scale_to_bounds)
-
-                elif  tmg_uv_vars.unwrapTypes == "Lightmap":                
-                    bpy.ops.uv.lightmap_pack(
-                        PREF_CONTEXT = tmg_uv_vars.li_selection, 
-                        PREF_PACK_IN_ONE = tmg_uv_vars.li_share_texture_space,
-                        PREF_NEW_UVLAYER = tmg_uv_vars.li_new_uv_map,
-                        PREF_APPLY_IMAGE = tmg_uv_vars.li_new_image,
-                        PREF_IMG_PX_SIZE = tmg_uv_vars.li_image_size,
-                        PREF_BOX_DIV = tmg_uv_vars.li_pack_quality,
-                        PREF_MARGIN_DIV = tmg_uv_vars.li_margin)
-                
-                if ob.mode != 'OBJECT':
-                    bpy.ops.object.mode_set(mode='OBJECT')
-
-        for ob in o_objs:
-            if ob.type == 'MESH':
-                if ob.data.uv_layers.get(self.name):
-                    # print("Has: ", ob.data.uv_layers.get(self.name))
-
-                    ob.data.uv_layers[self.name].active = True 
-                    bpy.context.view_layer.objects.active = ob
-                    ob.select_set(state=True)
-                else:
-                    print("UV layer not found")
-
-            if ob.mode != 'EDIT':
-                bpy.ops.object.mode_set(mode='EDIT')
-
         return {'FINISHED'}
 
 
@@ -567,7 +404,6 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
             prop.name = uv        
 
 
-
 ##### Edit Mode Panels #################################################################################
 
 
@@ -598,7 +434,7 @@ class EDIT_PT_Unwrap(Operator):
         col.prop(tmg_uv_vars, 'packMethod')
 
         if tmg_uv_vars.unwrapTypes == "Unwrap":
-            col.prop(tmg_uv_vars, 'selectAllFaces')
+            # col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'un_fill_holes')
             col.prop(tmg_uv_vars, 'un_correct_aspect')
             col.prop(tmg_uv_vars, 'un_use_subsurf_data')
@@ -614,7 +450,7 @@ class EDIT_PT_Unwrap(Operator):
             col.prop(tmg_uv_vars, 'sp_angle_limit')
             col.prop(tmg_uv_vars, 'sp_margin')
             col.prop(tmg_uv_vars, 'sp_area_weight')
-            col.prop(tmg_uv_vars, 'selectAllFaces')
+            # col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'sp_correct_aspect')
             col.prop(tmg_uv_vars, 'sp_scale_to_bounds')
             col.prop(tmg_uv_vars, 'clear_seams')
@@ -625,8 +461,8 @@ class EDIT_PT_Unwrap(Operator):
                 col.prop(tmg_uv_vars, 'sharpness')
 
         elif  tmg_uv_vars.unwrapTypes == "Lightmap":
-            col.prop(tmg_uv_vars, 'li_selection')
-            col.prop(tmg_uv_vars, 'selectAllFaces')
+            # col.prop(tmg_uv_vars, 'li_selection')
+            # col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'li_share_texture_space')
             col.prop(tmg_uv_vars, 'li_new_uv_map')
             col.prop(tmg_uv_vars, 'li_new_image')
@@ -646,57 +482,54 @@ class EDIT_PT_Unwrap(Operator):
     def execute(self, context):
         scene = context.scene
         tmg_uv_vars = scene.tmg_uv_vars
-        o_uvs = []
-        o_objs = []
-        # temp_sName = str(self.name)
 
-        face_list = []
+        # Make list of selected objects
+        multi = bpy.context.selected_objects
+        objs = [o for o in multi if o.data]
 
-        scene.tool_settings.use_uv_select_sync = True
+        # Select uv layer by name
+        for ob in objs:
+            _mode_switch('OBJECT')
+            sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
+            while len(sel_uvs) >= 1:      
+                uv = sel_uvs.pop() 
+                ob.data.uv_layers[uv.name].active = True   
 
-        sel_objs = [obj for obj in bpy.context.view_layer.objects.selected if obj.type == 'MESH' and obj.data.uv_layers.get(self.name)]
-        while len(sel_objs) >= 1:      
-            ob = sel_objs.pop() 
-            if ob.type == 'MESH':
-                o_objs.append(ob)
+        if tmg_uv_vars.packMethod == "individual":
+            for ob in objs:
+                me = ob.data
 
-            if ob.mode != 'OBJECT':
-                bpy.ops.object.mode_set(mode='OBJECT')
+                _mode_switch('EDIT')
 
-            if tmg_uv_vars.packMethod == 'individual':
-                bpy.ops.object.select_all(action='DESELECT')
-                bpy.context.view_layer.objects.active = ob
-                ob.select_set(state=True)
-   
-            sel_uvsO = [uv for uv in ob.data.uv_layers if uv.active == True]
-            while len(sel_uvsO) >= 1:      
-                uv = sel_uvsO.pop() 
-                o_uvs.append(uv)
+                bm = bmesh.from_edit_mesh(me)
 
-                sel_uvs = [uv for uv in ob.data.uv_layers if uv.name == self.name]
-                while len(sel_uvs) >= 1:      
-                    uv = sel_uvs.pop() 
-                    ob.data.uv_layers[uv.name].active = True 
-                
-                if ob.mode != 'EDIT':
-                    bpy.ops.object.mode_set(mode='EDIT')
-                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
-
-                remember_faces(ob, face_list)
-
+                # Sync uv / face selection
+                bpy.context.scene.tool_settings.use_uv_select_sync = True
+                    
+                # Set select mode to Edge
+                bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+                    
+                # Clear Seams
                 if tmg_uv_vars.clear_seams:
+                    # Select all uvs
+                    bpy.ops.uv.select_all(action='SELECT')
                     bpy.ops.mesh.mark_seam(clear=True)
-
+                    bpy.ops.uv.select_all(action='DESELECT')
+                
+                # Mark seams by sharp edges
                 if tmg_uv_vars.mark_sharp:
-                    bpy.ops.mesh.select_all(action='DESELECT')
-                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
                     bpy.ops.mesh.edges_select_sharp(sharpness=tmg_uv_vars.sharpness)
-                    bpy.ops.uv.mark_seam(clear=False)
+                    bpy.ops.mesh.mark_seam(clear=False)
+                    bpy.ops.uv.select_all(action='DESELECT')
 
-                if tmg_uv_vars.selectAllFaces:
-                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
-                    bpy.ops.mesh.select_all(action='SELECT')
-
+                # Loop over polygons in objects
+                for p in ob.data.polygons:
+                    bm.faces.ensure_lookup_table()
+                    bm.faces[p.index].select = True
+                      
+                # Set select mode to Face
+                bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+                
                 if tmg_uv_vars.unwrapTypes == "Unwrap":
                     bpy.ops.uv.unwrap(
                         method = tmg_uv_vars.unwrapMethod, 
@@ -723,29 +556,77 @@ class EDIT_PT_Unwrap(Operator):
                         PREF_BOX_DIV = tmg_uv_vars.li_pack_quality,
                         PREF_MARGIN_DIV = tmg_uv_vars.li_margin)
                 
-                if ob.mode != 'OBJECT':
-                    bpy.ops.object.mode_set(mode='OBJECT')
+                # Set select mode to Edge
+                bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+                
+                # Mark island seams
+                if tmg_uv_vars.island_seams:
+                    bpy.ops.uv.seams_from_islands()
+                
+                # Deslect mesh
+                bpy.ops.mesh.select_all(action='DESELECT')
 
-        for ob in o_objs:
-            if ob.data.uv_layers.get(self.name):
-                # print("Has: ", ob.data.uv_layers.get(self.name))
+                # Show the updates in the viewport
+                bmesh.update_edit_mesh(me)
+        else:
+            _mode_switch('EDIT')
+                
+            # Sync uv / face selection
+            bpy.context.scene.tool_settings.use_uv_select_sync = True
+                
+            # Set select mode to Edge
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+                
+            # Select all uvs
+            bpy.ops.uv.select_all(action='SELECT')
 
-                ob.data.uv_layers[self.name].active = True 
-                bpy.context.view_layer.objects.active = ob
-                ob.select_set(state=True)
-            else:
-                print("UV layer not found")
+            # Clear Seams
+            if tmg_uv_vars.clear_seams:
+                bpy.ops.mesh.mark_seam(clear=True)
+            
+            # Mark seams by sharp edges
+            if tmg_uv_vars.mark_sharp:
+                bpy.ops.mesh.edges_select_sharp(sharpness=tmg_uv_vars.sharpness)
+                bpy.ops.mesh.mark_seam(clear=False)
+                
+            # Set select mode to Face
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+            
+            if tmg_uv_vars.unwrapTypes == "Unwrap":
+                bpy.ops.uv.unwrap(
+                    method = tmg_uv_vars.unwrapMethod, 
+                    fill_holes = tmg_uv_vars.un_fill_holes, 
+                    correct_aspect = tmg_uv_vars.un_correct_aspect, 
+                    use_subsurf_data = tmg_uv_vars.un_use_subsurf_data, 
+                    margin = tmg_uv_vars.un_margin)
 
-        if ob.mode != 'EDIT':
-            bpy.ops.object.mode_set(mode='EDIT')
+            elif tmg_uv_vars.unwrapTypes == "Smart_Project":
+                bpy.ops.uv.smart_project(
+                    angle_limit = tmg_uv_vars.sp_angle_limit, 
+                    island_margin = tmg_uv_vars.sp_margin, 
+                    area_weight = tmg_uv_vars.sp_area_weight,
+                    correct_aspect = tmg_uv_vars.sp_correct_aspect, 
+                    scale_to_bounds = tmg_uv_vars.sp_scale_to_bounds)
 
-            # if tmg_uv_vars.clear_seams:
-            #     bpy.ops.mesh.mark_seam(clear=True)
-
+            elif  tmg_uv_vars.unwrapTypes == "Lightmap":                
+                bpy.ops.uv.lightmap_pack(
+                    PREF_CONTEXT = tmg_uv_vars.li_selection, 
+                    PREF_PACK_IN_ONE = tmg_uv_vars.li_share_texture_space,
+                    PREF_NEW_UVLAYER = tmg_uv_vars.li_new_uv_map,
+                    PREF_APPLY_IMAGE = tmg_uv_vars.li_new_image,
+                    PREF_IMG_PX_SIZE = tmg_uv_vars.li_image_size,
+                    PREF_BOX_DIV = tmg_uv_vars.li_pack_quality,
+                    PREF_MARGIN_DIV = tmg_uv_vars.li_margin)
+            
+            # Set select mode to Edge
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+            
+            # Mark island seams
             if tmg_uv_vars.island_seams:
-                seam_islands(ob)
+                bpy.ops.uv.seams_from_islands()
 
-            # select_faces(ob, face_list)
+            # Deslect mesh
+            bpy.ops.mesh.select_all(action='DESELECT')
 
         return {'FINISHED'}
 
@@ -888,7 +769,7 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
 
 
         if tmg_uv_vars.unwrapTypes == "Unwrap":
-            col.prop(tmg_uv_vars, 'selectAllFaces')
+            # col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'un_fill_holes')
             col.prop(tmg_uv_vars, 'un_correct_aspect')
             col.prop(tmg_uv_vars, 'un_use_subsurf_data')
@@ -904,7 +785,7 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
             col.prop(tmg_uv_vars, 'sp_angle_limit')
             col.prop(tmg_uv_vars, 'sp_margin')
             col.prop(tmg_uv_vars, 'sp_area_weight')
-            col.prop(tmg_uv_vars, 'selectAllFaces')
+            # col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'sp_correct_aspect')
             col.prop(tmg_uv_vars, 'sp_scale_to_bounds')
             col.prop(tmg_uv_vars, 'clear_seams')
@@ -915,8 +796,8 @@ class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
                 col.prop(tmg_uv_vars, 'sharpness')
 
         elif  tmg_uv_vars.unwrapTypes == "Lightmap":
-            col.prop(tmg_uv_vars, 'li_selection')
-            col.prop(tmg_uv_vars, 'selectAllFaces')
+            # col.prop(tmg_uv_vars, 'li_selection')
+            # col.prop(tmg_uv_vars, 'selectAllFaces')
             col.prop(tmg_uv_vars, 'li_share_texture_space')
             col.prop(tmg_uv_vars, 'li_new_uv_map')
             col.prop(tmg_uv_vars, 'li_new_image')
