@@ -78,7 +78,7 @@ def _mode_switch(_mode):
     return{"Finished"}
 
 
-class OBJECT_PT_SelectOB(Operator):
+class OBJECT_PT_TMG_UV_SelectOB(Operator):
     """Select object from scene and set it to active"""
 
     bl_idname = "tmg_uv.select_ob"
@@ -94,7 +94,7 @@ class OBJECT_PT_SelectOB(Operator):
         return {'FINISHED'}
 
 
-class OBJECT_PT_DeleteOB(Operator):
+class OBJECT_PT_TMG_UV_DeleteOB(Operator):
     """Delete object from scene"""
 
     bl_idname = "tmg_uv.delete_ob"
@@ -118,7 +118,7 @@ class OBJECT_PT_DeleteOB(Operator):
         return {'FINISHED'}
 
 
-class OBJECT_PT_SelectUV(Operator):
+class OBJECT_PT_TMG_UV_SelectUV(Operator):
     """Select uv layer from objects and set it to active"""
 
     bl_idname = "tmg_uv.select_uv"
@@ -138,7 +138,7 @@ class OBJECT_PT_SelectUV(Operator):
         return {'FINISHED'}
 
 
-class OBJECT_PT_DeleteUV(Operator):
+class OBJECT_PT_TMG_UV_DeleteUV(Operator):
     """Delete uv from objects"""
 
     bl_idname = "tmg_uv.delete_uv"
@@ -158,7 +158,7 @@ class OBJECT_PT_DeleteUV(Operator):
         return {'FINISHED'}
 
 
-class OBJECT_PT_DeleteAllUV(Operator):
+class OBJECT_PT_TMG_UV_DeleteAllUV(Operator):
     """Delete all uvs from objects"""
 
     bl_idname = "tmg_uv.delete_all_uv"
@@ -177,7 +177,7 @@ class OBJECT_PT_DeleteAllUV(Operator):
         return {'FINISHED'}
 
 
-class OBJECT_PT_AddUV(Operator):
+class OBJECT_PT_TMG_UV_AddUV(Operator):
     """Add uv to objects"""
 
     bl_idname = "tmg_uv.add_uv"
@@ -193,7 +193,7 @@ class OBJECT_PT_AddUV(Operator):
         return {'FINISHED'}
 
 
-class OBJECT_PT_RenameUV(Operator):
+class OBJECT_PT_TMG_UV_RenameUV(Operator):
     """Rename uv layer on objects"""
 
     bl_idname = "tmg_uv.rename_uv"
@@ -214,7 +214,7 @@ class OBJECT_PT_RenameUV(Operator):
         return {'FINISHED'}
 
 
-class OBJECT_PT_ActiveRenderUV(Operator):
+class OBJECT_PT_TMG_UV_ActiveRenderUV(Operator):
     """Set uv layer to active render on objects"""
 
     bl_idname = "tmg_uv.active_render_uv"
@@ -234,24 +234,25 @@ class OBJECT_PT_ActiveRenderUV(Operator):
         return {'FINISHED'}
 
 
-class OBJECT_PT_TMG_Object_Panel(bpy.types.Panel):
-    bl_idname = 'OBJECT_PT_tmg_object_panel'
-    bl_category = 'TMG UV'
-    bl_label = 'Object'
+class OBJECT_PT_TMG_UV_Object_Panel(bpy.types.Panel):
+    bl_idname = 'OBJECT_PT_tmg_uv_object_panel'
+    bl_category = 'TMG'
+    bl_label = 'UV Tools'
     bl_context = "objectmode"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout
         
 
-class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
-    bl_idname = "OBJECT_PT_tmg_object_panel_list"
+class OBJECT_PT_TMG_UV_Object_Panel_List(bpy.types.Panel):
+    bl_idname = "OBJECT_PT_tmg_uv_object_panel_list"
     bl_label = ""
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_parent_id = "OBJECT_PT_tmg_object_panel"
+    bl_parent_id = "OBJECT_PT_tmg_uv_object_panel"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw_header(self, context):
@@ -303,16 +304,16 @@ class OBJECT_PT_TMG_Object_Panel_List(bpy.types.Panel):
             prop.name = ob.name    
 
 
-class OBJECT_PT_TMG_UV_Panel(bpy.types.Panel):
-    bl_idname = 'OBJECT_PT_tmg_uv_panel'
-    bl_category = 'TMG UV'
-    bl_label = 'UV'
-    bl_context = "objectmode"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
+# class OBJECT_PT_TMG_UV_Panel(bpy.types.Panel):
+#     bl_idname = 'OBJECT_PT_tmg_uv_panel'
+#     bl_label = 'UV Tools'
+#     bl_space_type = "VIEW_3D"
+#     bl_region_type = "UI"
+#     bl_parent_id = "OBJECT_PT_tmg_uv_object_panel"
+#     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
-        layout = self.layout
+#     def draw(self, context):
+#         layout = self.layout
 
             
 class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
@@ -320,7 +321,7 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
     bl_label = ""
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_parent_id = "OBJECT_PT_tmg_uv_panel"
+    bl_parent_id = "OBJECT_PT_tmg_uv_object_panel"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw_header(self, context):
@@ -372,12 +373,14 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
         row = col.row(align=True)  
 
         # row.label(text='Name')
-        row.prop(tmg_uv_vars, "uvName", text='Name')
+        # row.prop(tmg_uv_vars, "uvName", text='Name')
 
         row = col.row(align=True)  
 
         if len(uvs) < 1: 
             col.label(text="No UVs on Objects")
+        else:
+            row.prop(tmg_uv_vars, "uvName", text='Name')
         
         for uv in uvs:
             row = col.row(align=True)
@@ -407,7 +410,7 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
 ##### Edit Mode Panels #################################################################################
 
 
-class EDIT_PT_Unwrap(Operator):
+class EDIT_PT_TMG_UV_Unwrap(Operator):
     """Unwrap uvs of selected objects"""
 
     bl_idname = "tmg_uv.edit_unwrap_uv"
@@ -635,9 +638,9 @@ class EDIT_PT_TMG_UV_Panel(bpy.types.Panel):
     bl_idname = 'EDIT_PT_tmg_uv_panel'
 
     bl_space_type = "IMAGE_EDITOR"
-    bl_label = 'UV'
+    bl_label = 'UV Tools'
     bl_region_type = 'UI'
-    bl_category = 'TMG UV'
+    bl_category = 'TMG'
 
     @classmethod
     def poll(cls, context):
@@ -743,8 +746,8 @@ class EDIT_PT_TMG_UV_Panel_List(bpy.types.Panel):
             prop.name = uv        
 
 
-class EDIT_PT_TMG_Unwrap_Settings_Panel(bpy.types.Panel):
-    bl_idname = "EDIT_PT_tmg_unwrap_settings_panel"
+class EDIT_PT_TMG_UV_Unwrap_Settings_Panel(bpy.types.Panel):
+    bl_idname = "EDIT_PT_tmg_uv_unwrap_settings_panel"
     bl_label = "Settings"
     bl_space_type = "IMAGE_EDITOR"
     bl_region_type = "UI"

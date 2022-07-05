@@ -22,8 +22,8 @@ bl_info = {
     "author": "Johnathan Mueller",
     "descrtion": "A panel to manage uv layers",
     "blender": (2, 80, 0),
-    "version": (0, 1, 0),
-    "location": "View3D (ObjectMode) > Sidebar > TMG_UV Tab",
+    "version": (0, 1, 1),
+    "location": "View3D (ObjectMode) > Sidebar > TMG > UV Tab",
     "warning": "",
     "category": "Object"
 }
@@ -33,25 +33,25 @@ classes = (
     TMG_UV_Properties,
 
     ## UV Operators
-    OBJECT_PT_ActiveRenderUV,
-    OBJECT_PT_AddUV,
-    OBJECT_PT_DeleteAllUV,
-    OBJECT_PT_DeleteOB,
-    OBJECT_PT_DeleteUV,
-    OBJECT_PT_RenameUV,
-    OBJECT_PT_SelectOB,
-    OBJECT_PT_SelectUV,
-    EDIT_PT_Unwrap,
+    OBJECT_PT_TMG_UV_ActiveRenderUV,
+    OBJECT_PT_TMG_UV_AddUV,
+    OBJECT_PT_TMG_UV_DeleteAllUV,
+    OBJECT_PT_TMG_UV_DeleteOB,
+    OBJECT_PT_TMG_UV_DeleteUV,
+    OBJECT_PT_TMG_UV_RenameUV,
+    OBJECT_PT_TMG_UV_SelectOB,
+    OBJECT_PT_TMG_UV_SelectUV,
+    EDIT_PT_TMG_UV_Unwrap,
     
     ## UV Object Panel
-    OBJECT_PT_TMG_Object_Panel,
-    OBJECT_PT_TMG_Object_Panel_List,
-    OBJECT_PT_TMG_UV_Panel, 
+    OBJECT_PT_TMG_UV_Object_Panel,
+    OBJECT_PT_TMG_UV_Object_Panel_List,
+    # OBJECT_PT_TMG_UV_Panel, 
     OBJECT_PT_TMG_UV_Panel_List,
 
     ## UV Edit Panel
     EDIT_PT_TMG_UV_Panel,
-    EDIT_PT_TMG_Unwrap_Settings_Panel,
+    EDIT_PT_TMG_UV_Unwrap_Settings_Panel,
     EDIT_PT_TMG_UV_Panel_List,
 )
 
