@@ -1,7 +1,7 @@
 # TMG-UV-Tools
 Blender 2.9x add-on to manage uv layers on selected objects
 
-[Current Release 0.1.0](https://github.com/Mainman002/TMG-UV-Tools/releases/tag/0.1.0)
+[Current Release 0.1.1](https://github.com/Mainman002/TMG-UV-Tools/releases/tag/0.1.1)
 
 ## My Goals for this add-on:
 * Display uv layers of selected objects without showing duplicate names
