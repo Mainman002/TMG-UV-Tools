@@ -41,6 +41,7 @@ classes = (
     OBJECT_PT_TMG_UV_RenameUV,
     OBJECT_PT_TMG_UV_SelectOB,
     OBJECT_PT_TMG_UV_SelectUV,
+    OBJECT_PT_TMG_UV_Lightmap,
     EDIT_PT_TMG_UV_Unwrap,
     
     ## UV Object Panel

@@ -15,6 +15,85 @@ import bmesh
 #                         region.tag_redraw()
 
 
+# ctx = bpy.context
+# scene = ctx.scene
+# original_objs = bpy.context.selected_objects
+original_objs = []
+
+def select_object(obj):
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    return obj
+
+
+def select_original():
+    ctx = bpy.context
+    scene = ctx.scene
+    original_objs = bpy.context.selected_objects
+
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in original_objs:
+        obj.select_set(True)
+    
+    if len(original_objs)-1 > 0:
+        ctx.view_layer.objects.active = original_objs[0]
+    return {'FINISHED'}
+
+
+def change_mode(obj, mode):
+    bpy.ops.object.mode_set(mode=mode, toggle=False)
+    return {'FINISHED'}
+
+
+def uv_layer_count(obj):
+    return len(obj.data.uv_layers)
+
+
+def set_active_uv_layer(obj, idx):
+    obj.data.uv_layers[idx].active = True
+    return {'FINISHED'}
+
+
+def rename_uv_layer(obj, idx, name):
+    if uv_layer_count(obj)-1 > 0:
+        obj.data.uv_layers[idx].name = name
+    return {'FINISHED'}
+
+
+def add_uv_layer(obj, idx, name):
+    if uv_layer_count(obj)-1 < idx:
+        bpy.ops.mesh.uv_texture_add()
+        
+    rename_uv_layer(obj, 1, "Lightmap")
+    return {'FINISHED'}
+
+
+def remove_extra_uvs(obj):
+    uv_layers = obj.data.uv_layers
+    
+    if len(uv_layers) > 1:
+        while len(uv_layers) > 1:
+            uv_layers.remove(uv_layers[-1])
+    
+    return {'FINISHED'}
+
+
+def lightmap_unwrap(obj):
+    change_mode(obj, 'EDIT')
+    
+    bpy.ops.uv.lightmap_pack(
+        PREF_CONTEXT='ALL_FACES',
+        PREF_PACK_IN_ONE=True,
+        PREF_NEW_UVLAYER=False,
+        PREF_BOX_DIV=12,
+        PREF_MARGIN_DIV=0.4
+    )
+    
+    change_mode(None, 'OBJECT')
+    return {'FINISHED'}
+
+
 class TMG_UV_Properties(bpy.types.PropertyGroup):
     uvName : bpy.props.StringProperty(name='UVMap', default='UVMap', description='Name to set uv layer to')
     clear_seams : bpy.props.BoolProperty(name="Clear Seams", default=False, description='Remove UV seams')
@@ -234,6 +313,116 @@ class OBJECT_PT_TMG_UV_ActiveRenderUV(Operator):
         return {'FINISHED'}
 
 
+
+
+
+class OBJECT_PT_TMG_UV_Lightmap(Operator):
+    """Add lightmap to selected objects"""
+
+    bl_idname = "tmg_uv.lightmap_objects"
+    bl_label = ""
+    bl_options = {'REGISTER', 'UNDO'}
+    name : bpy.props.StringProperty(name='UVMap')
+
+    # ctx = bpy.context
+    # scene = ctx.scene
+    # original_objs = ctx.selected_objects
+
+    # def select_object(obj):
+    #     bpy.ops.object.select_all(action='DESELECT')
+    #     obj.select_set(True)
+    #     bpy.context.view_layer.objects.active = obj
+    #     return obj
+
+
+    # def select_original():
+    #     bpy.ops.object.select_all(action='DESELECT')
+    #     for obj in original_objs:
+    #         obj.select_set(True)
+        
+    #     if len(original_objs)-1 > 0:
+    #         ctx.view_layer.objects.active = original_objs[0]
+    #     return {'FINISHED'}
+
+
+    # def change_mode(obj, mode):
+    #     bpy.ops.object.mode_set(mode=mode, toggle=False)
+    #     return {'FINISHED'}
+
+
+    # def uv_layer_count(obj):
+    #     return len(obj.data.uv_layers)
+
+
+    # def set_active_uv_layer(obj, idx):
+    #     obj.data.uv_layers[idx].active = True
+    #     return {'FINISHED'}
+
+
+    # def rename_uv_layer(obj, idx, name):
+    #     if uv_layer_count(obj)-1 > 0:
+    #         obj.data.uv_layers[idx].name = name
+    #     return {'FINISHED'}
+
+
+    # def add_uv_layer(obj, idx, name):
+    #     if uv_layer_count(obj)-1 < idx:
+    #         bpy.ops.mesh.uv_texture_add()
+            
+    #     rename_uv_layer(obj, 1, "Lightmap")
+    #     return {'FINISHED'}
+
+
+    # def remove_extra_uvs(obj):
+    #     uv_layers = obj.data.uv_layers
+        
+    #     if len(uv_layers) > 1:
+    #         while len(uv_layers) > 1:
+    #             uv_layers.remove(uv_layers[-1])
+        
+    #     return {'FINISHED'}
+
+
+    # def lightmap_unwrap(obj):
+    #     change_mode(obj, 'EDIT')
+        
+    #     bpy.ops.uv.lightmap_pack(
+    #         PREF_CONTEXT='ALL_FACES',
+    #         PREF_PACK_IN_ONE=True,
+    #         PREF_NEW_UVLAYER=False,
+    #         PREF_BOX_DIV=12,
+    #         PREF_MARGIN_DIV=0.4
+    #     )
+        
+    #     change_mode(None, 'OBJECT')
+    #     return {'FINISHED'}
+
+    def execute(self, context):
+        ctx = context
+        scene = ctx.scene
+        original_objs = bpy.context.selected_objects
+
+        if ctx.active_object:
+            change_mode(None, 'OBJECT')
+            original_objs = ctx.selected_objects
+
+            for obj in ctx.selected_objects:
+                if obj.type == "MESH":
+                    _obj = select_object(obj)
+                    
+                    remove_extra_uvs(_obj)
+                    add_uv_layer(_obj, 1, "Lightmap")
+                    add_uv_layer(_obj, 1, "Lightmap")
+                    lightmap_unwrap(obj)
+                    set_active_uv_layer(_obj, 0)
+                
+            select_original()
+        return {'FINISHED'}
+
+
+
+
+
 class OBJECT_PT_TMG_UV_Object_Panel(bpy.types.Panel):
     bl_idname = 'OBJECT_PT_tmg_uv_object_panel'
     bl_category = 'TMG'
@@ -342,6 +531,7 @@ class OBJECT_PT_TMG_UV_Panel_List(bpy.types.Panel):
 
         layout.label(text="UVs : %s" %len(uvs))
         prop = layout.operator("tmg_uv.add_uv", text='', icon="PLUS", emboss=True)
+        prop = layout.operator("tmg_uv.lightmap_objects", text='', icon="LIGHT_DATA", emboss=True)
         prop = layout.operator("tmg_uv.delete_all_uv", text='', icon="X", emboss=True)
         
 
@@ -680,6 +870,7 @@ class EDIT_PT_TMG_UV_Panel_List(bpy.types.Panel):
 
         layout.label(text="UVs : %s" %len(uvs))
         prop = layout.operator("tmg_uv.add_uv", text='', icon="PLUS", emboss=True)
+        prop = layout.operator("tmg_uv.lightmap_objects", text='', icon="LIGHT_DATA", emboss=True)
         prop = layout.operator("tmg_uv.delete_all_uv", text='', icon="X", emboss=True)
         
 
